@@ -157,23 +157,25 @@ The architecture leaves these edge cases open. The suggested behaviour is below.
 
 ## Phase 3: UI with Score-Ranked Results
 
+**Status: complete.** The full journey was checked in a browser.
+
 **Goal:** Build the complete user journey with no LLM. This also builds the path the app falls back on when the LLM fails.
 
 **Design:** [Sections 6, 9 and 10](architecture.md#9-output-display)
 
 ### Tasks
 
-- [ ] Add a `RecommendationResult` type to `models.py`, holding the results, an optional summary, relaxations, an `ai_ranked` flag, any notice for the user, a `failure_reason` and a `diagnostics` object
-- [ ] Write `service.py` with `recommend(preferences)`, returning the top 5 by score and with no Streamlit imports. Pass the repository and LLM client in as constructor arguments, so tests and the evaluation can replace them.
-- [ ] Write `app.py`:
-  - [ ] Load data once with `st.cache_resource`
-  - [ ] Show a setup message if the data files are missing
-  - [ ] Build the form from [section 6](architecture.md#6-user-input), with rupee ranges beside the budget options
-  - [ ] Build result cards, showing "New" or "Unrated" for a missing rating
-  - [ ] Show relaxation notices
-  - [ ] Show the empty-result message, suggesting a different area or cuisine
-  - [ ] Show the "not AI-ranked" notice
-- [ ] Render dataset text as plain text, not Markdown or HTML
+- [x] Add a `RecommendationResult` type to `models.py`, holding the results, an optional summary, relaxations, an `ai_ranked` flag, any notice for the user, a `failure_reason` and a `diagnostics` object
+- [x] Write `service.py` with `recommend(preferences)`, returning the top 5 by score and with no Streamlit imports. Pass the repository and LLM client in as constructor arguments, so tests and the evaluation can replace them.
+- [x] Write `app.py`:
+  - [x] Load data once with `st.cache_resource`
+  - [x] Show a setup message if the data files are missing
+  - [x] Build the form from [section 6](architecture.md#6-user-input), with rupee ranges beside the budget options
+  - [x] Build result cards, showing "New" or "Unrated" for a missing rating
+  - [x] Show relaxation notices
+  - [x] Show the empty-result message, suggesting a different area or cuisine
+  - [x] Show the "not AI-ranked" notice
+- [x] Render dataset text as plain text, not Markdown or HTML. `display.py` escapes it for `st.html`.
 
 ### Tests
 
@@ -184,12 +186,12 @@ The architecture leaves these edge cases open. The suggested behaviour is below.
 
 ### Exit criteria
 
-- [ ] `streamlit run app.py` shows a working form
-- [ ] A normal search shows cards with name, cuisine, rating and estimated cost
-- [ ] A very narrow search shows a relaxation notice
-- [ ] An impossible search shows the empty-result message
-- [ ] Renaming the data folder shows the setup message, not a stack trace
-- [ ] Review or name text containing Markdown or HTML displays literally
+- [x] `streamlit run app.py` shows a working form
+- [x] A normal search shows cards with name, cuisine, rating and estimated cost
+- [x] A very narrow search shows a relaxation notice
+- [x] An impossible search shows the empty-result message
+- [x] Renaming the data folder shows the setup message, not a stack trace
+- [x] Review or name text containing Markdown or HTML displays literally
 
 ## Phase 4: LLM Ranking
 

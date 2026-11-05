@@ -139,3 +139,32 @@ class CandidateSelection:
     applied_min_rating: float
     applied_budgets: tuple[str, ...]  # Empty when the search has no budget limit.
     total_matches: int
+
+
+@dataclass(frozen=True)
+class Diagnostics:
+    """Details for evaluation and debugging, which never reach the UI."""
+
+    applied_min_rating: float | None = None
+    applied_budgets: tuple[str, ...] = ()
+    total_matches: int = 0
+    candidates_sent: tuple[str, ...] = ()
+    raw_llm_text: str | None = None
+    usage: dict[str, int] | None = None
+    stop_reason: str | None = None
+    served_model: str | None = None
+    latency_seconds: float | None = None
+    retry_count: int | None = None
+
+
+@dataclass(frozen=True)
+class RecommendationResult:
+    """The outcome of one search, as shown to the diner."""
+
+    results: list[Candidate]
+    relaxations: list[Relaxation]
+    summary: str | None = None
+    ai_ranked: bool = False
+    notice: str | None = None  # A message for the diner.
+    failure_reason: str | None = None  # Why results fell back, for logs and evaluation only.
+    diagnostics: Diagnostics = field(default_factory=Diagnostics)

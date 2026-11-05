@@ -1,0 +1,7 @@
+[browser]
+# Don't send usage statistics to Streamlit.
+gatherUsageStats = false
+
+[client]
+# Hide developer options, such as the Deploy button, from diners.
+toolbarMode = "minimal"

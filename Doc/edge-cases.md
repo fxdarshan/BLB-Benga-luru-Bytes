@@ -129,7 +129,7 @@ Reviewing the documents turned up these problems, which were likely to cause rea
 | FIL-02 | Several cuisines are chosen | Any one match passes | Covered |
 | FIL-03 | The restaurant's cuisine is null and a cuisine was chosen | Fails the filter | Covered |
 | FIL-04 | Cost is null and a budget band is chosen | Fails the filter | Covered |
-| FIL-05 | Cost or cuisine is null and that filter is off | Passes. The card shows "Not listed". | New |
+| FIL-05 | Cost or cuisine is null and that filter is off | Passes. The card shows "Not listed". | Covered |
 | FIL-06 | A rating equals `min_rating` exactly | Passes, since the check is `>=` | Covered |
 | FIL-07 | Unrated, with `include_unrated` off | Excluded | Covered |
 | FIL-08 | Unrated, with `include_unrated` on | Included at any `min_rating` | Covered |
@@ -180,19 +180,19 @@ Reviewing the documents turned up these problems, which were likely to cause rea
 | ID | Scenario | Expected behaviour | Status |
 | --- | --- | --- | --- |
 | UI-01 | The data files are missing | Setup message naming the ingest command, with no stack trace | Covered |
-| UI-02 | Parquet or metadata is corrupted or from an older format | Same setup message, asking the user to re-run ingestion | New |
-| UI-03 | Changing a widget reruns the Streamlit script | Put inputs in `st.form`, so only Submit starts a search and spends money | New |
+| UI-02 | Parquet or metadata is corrupted or from an older format | Same setup message, asking the user to re-run ingestion | Covered |
+| UI-03 | Changing a widget reruns the Streamlit script | Put inputs in `st.form`, so only Submit starts a search and spends money | Covered |
 | UI-04 | The user double-clicks Submit | One search runs, with the button disabled or the cache absorbing the repeat | New |
-| UI-05 | A later widget change reruns the page and could clear results | Keep the latest result in `st.session_state` | New |
-| UI-06 | The user changes inputs after searching | Results stay until the next Submit, labelled with the search they came from | New |
+| UI-05 | A later widget change reruns the page and could clear results | Keep the latest result in `st.session_state` | Covered |
+| UI-06 | The user changes inputs after searching | Results stay until the next Submit, labelled with the search they came from | Covered |
 | UI-07 | The user closes the tab during an LLM call | The call may finish and be billed. Accept this, as it should be rare. | New |
 | UI-08 | Names or LLM text contain `*`, `_`, `$` or HTML | Displayed literally. `$` matters because Streamlit Markdown can treat it as maths. | Covered |
 | UI-09 | Rating is missing | Shows "New" or "Unrated" | Covered |
-| UI-10 | Cost or cuisine is missing | Shows "Not listed" | New |
+| UI-10 | Cost or cuisine is missing | Shows "Not listed" | Covered |
 | UI-11 | Cost could be read as per person | Always labelled "for two" | Covered |
-| UI-12 | A very long name or explanation | Wraps in the card without breaking the layout. **(Manual)** | New |
+| UI-12 | A very long name or explanation | Wraps in the card without breaking the layout. **(Manual)** | Covered |
 | UI-13 | The neighbourhood differs from the chosen area | The card shows the neighbourhood, so it doesn't look like a wrong result | Covered |
-| UI-14 | The dataset is a fixed snapshot, so places may have closed or changed | Add a short note that data may be out of date | New |
+| UI-14 | The dataset is a fixed snapshot, so places may have closed or changed | Add a short note that data may be out of date | Covered |
 | UI-15 | Fewer than 5 results | Show them with no padding or error | Covered |
 
 ## Phase 4: LLM Integration

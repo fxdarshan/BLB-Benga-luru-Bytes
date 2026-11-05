@@ -144,8 +144,10 @@ sequenceDiagram
 │   ├── prompts.py            # System prompt and user prompt builder
 │   ├── llm.py                # Claude API call and error mapping
 │   ├── validation.py         # Grounding checks on LLM output
+│   ├── display.py            # Formats and escapes text for the result cards
 │   └── service.py            # recommend(): orchestrates one search
 ├── app.py                    # Streamlit UI
+├── .streamlit/config.toml     # No usage statistics; hides developer options
 ├── tests/
 │   └── eval/                 # cases.json, preflight.py, run_eval.py
 ├── pyproject.toml
@@ -484,7 +486,7 @@ These token counts are assumptions, and thinking in particular can vary. Replace
 
 ## 9. Output Display
 
-Each recommendation is a card:
+Run the app with `uv run streamlit run app.py`. Each recommendation is a card:
 
 ```text
 ┌────────────────────────────────────────────────────┐
@@ -505,7 +507,11 @@ Each recommendation is a card:
 | Estimated cost | Dataset, labelled "for two" |
 | AI-generated explanation | LLM |
 
-Above the cards, the page shows the LLM summary and any relaxations applied. Render LLM text and reviews as **plain text**, not Markdown or HTML, since both can contain content from outside the app.
+Above the cards, the page shows the search these results came from, the LLM summary and any relaxations applied. Results stay on the page until the next search, and the form only searches on Submit, so changing a widget can't start a paid LLM call.
+
+LLM text, dataset text and free text must **display literally**, since all of them can contain content from outside the app. `display.py` escapes every value and the app shows it through `st.html`, which also avoids Streamlit's Markdown and maths handling of characters such as `*` and `$`.
+
+A restaurant that isn't located in the chosen area shows "Near <area>", and a missing cost or cuisine shows "not listed". Below the cards, a note says the data is a fixed snapshot that may be out of date.
 
 ## 10. Error Handling
 

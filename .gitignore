@@ -1,0 +1,24 @@
+# graft's local graph cache — regenerable, not committed (run `graft build`).
+/graft/
+
+# Secrets
+.env
+
+# Generated data: rebuild with `python -m recommender.ingest`
+/data/
+
+# Evaluation traces hold review text from a dataset with no stated licence
+traces/
+
+# Virtual environments
+.venv/
+venv/
+
+# Python and tool caches
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+.ruff_cache/

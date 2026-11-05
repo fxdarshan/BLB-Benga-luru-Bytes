@@ -7,6 +7,7 @@ import pytest
 
 from recommender import ingest
 from recommender.ingest import IngestionError
+from recommender.models import BudgetBand
 
 
 def raw_row(**overrides):
@@ -40,7 +41,7 @@ def varied_rows(count=30):
             address=f"{i} Road, Bangalore",
             url=f"https://www.zomato.com/bangalore/place-{i}?context=x",
             **{
-                ingest.COST_COLUMN: f"{(i % 6 + 1) * 200:,}",
+                ingest.COST_COLUMN: f"{(i % 6 + 1) * 400:,}",
                 ingest.AREA_COLUMN: ("MG Road", "BTM", "HSR")[i % 3],
             },
         )
@@ -144,29 +145,37 @@ def test_deduplicate_reports_counts():
     assert stats["restaurants_with_conflicting_ratings"] == 1
 
 
-def test_budget_bands_use_inclusive_upper_edges():
-    costs = pd.Series([100, 200, 300, 400, 500, 600, 700, 800, 900], dtype="Int64")
-    assert ingest.budget_bands(costs) == {
-        "low": {"min": 100, "max": 300},
-        "medium": {"min": 400, "max": 600},
-        "high": {"min": 700, "max": None},
-    }
+@pytest.mark.parametrize(
+    ("cost", "band"),
+    [
+        (40, "low"),
+        (499, "low"),
+        (500, "medium"),
+        (1500, "medium"),
+        (1501, "high"),
+        (6000, "high"),
+    ],
+)
+def test_budget_bands_use_the_chosen_ranges(cost, band):
+    bands = {name: BudgetBand(**values) for name, values in ingest.BUDGET_BANDS.items()}
+    assert [name for name, values in bands.items() if values.contains(cost)] == [band]
 
 
-def test_budget_bands_cover_every_cost_exactly_once():
-    costs = pd.Series([100, 100, 100, 300, 300, 500, 500, 800, 800, None], dtype="Int64")
-    bands = ingest.budget_bands(costs)
-    assert sum(ingest.band_sizes(costs, bands).values()) == 9
+def test_budget_band_labels():
+    labels = {name: BudgetBand(**band).label() for name, band in ingest.BUDGET_BANDS.items()}
+    assert labels == {"low": "below ₹500", "medium": "₹500 to ₹1,500", "high": "above ₹1,500"}
 
 
-def test_budget_bands_fail_when_costs_are_too_clustered():
-    with pytest.raises(IngestionError, match="clustered"):
-        ingest.budget_bands(pd.Series([500] * 9 + [800], dtype="Int64"))
+def test_band_sizes_ignore_missing_costs():
+    costs = pd.Series([100, 499, 500, 1500, 1501, None], dtype="Int64")
+    assert ingest.band_sizes(costs) == {"low": 2, "medium": 2, "high": 1}
 
 
-def test_budget_bands_fail_with_no_costs():
-    with pytest.raises(IngestionError, match="usable cost"):
-        ingest.budget_bands(pd.Series([None, None], dtype="Int64"))
+def test_build_id_changes_with_budget_bands(monkeypatch):
+    first = run(varied_rows()).metadata["build_id"]
+    changed = {**ingest.BUDGET_BANDS, "medium": {"min": 500, "max": 1600}}
+    monkeypatch.setattr(ingest, "BUDGET_BANDS", changed)
+    assert ingest.content_hash(run(varied_rows()).restaurants) != first
 
 
 def test_metadata_median_votes_is_never_zero():
@@ -225,13 +234,13 @@ def test_check_fails_on_wrong_area_count():
         run(varied_rows(), expected_areas=30)
 
 
-def test_check_fails_on_nearly_empty_budget_band():
+def test_check_fails_on_empty_budget_band():
     result = run(varied_rows())
     metadata = {
         **result.metadata,
-        "budget_band_sizes": {"low": 1, "medium": 14, "high": 15},
+        "budget_band_sizes": {"low": 10, "medium": 20, "high": 0},
     }
-    with pytest.raises(IngestionError, match="nearly empty"):
+    with pytest.raises(IngestionError, match="no restaurants"):
         ingest.check_output(result.restaurants, metadata, raw_rated_share=1.0, expected_areas=3)
 
 

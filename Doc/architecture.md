@@ -199,13 +199,17 @@ Run with `uv run python -m recommender.ingest`. It takes under a minute once the
 
 ### Budget bands
 
-The problem statement asks for low, medium and high but gives no amounts. Rather than guess, ingestion computes **terciles of `cost_for_two`** after deduplication and stores them in `metadata.json`. Each band's upper edge is inclusive. The UI shows the actual rupee range beside each option, so users can see what each band means.
+The problem statement asks for low, medium and high but gives no amounts, so the project owner chose these fixed ranges for the cost for two:
 
-| Band | Cost for two, at the current build | Restaurants |
-| --- | --- | --- |
-| Low | ₹40 to ₹300 | 5,127 |
-| Medium | ₹330 to ₹500 | 3,856 |
-| High | ₹550 and above | 3,411 |
+| Band | Cost for two | Restaurants at the current build | Share |
+| --- | --- | --- | --- |
+| Low | Below ₹500 | 7,720 | 62% |
+| Medium | ₹500 to ₹1,500 | 4,388 | 35% |
+| High | Above ₹1,500 | 286 | 2% |
+
+Exactly ₹500 and exactly ₹1,500 both count as medium. The ranges are defined in `ingest.py` and copied into `metadata.json`, so changing them needs a rebuild, which also changes the `build_id`.
+
+The high band is small, and most of those restaurants are listed around the central areas. So in an area with few of them, such as Banashankari, which has none rated 3.5+, a high-budget search widens down to medium, with a notice saying so.
 
 ### Ingestion checks
 
@@ -217,7 +221,7 @@ The script fails with a clear error if:
 - Any parsed rating falls outside 0 to 5
 - The data doesn't contain exactly 30 areas
 - Restaurant IDs aren't unique
-- Costs are too clustered to form three bands, or a band holds under 10% of restaurants with a known cost
+- A budget band has no restaurants
 
 The report prints the counts of duplicates removed, null fields, review parse failures, remaining mojibake, and conflicts merged during deduplication. The current build merged 1,415 restaurants with conflicting ratings and 11 with several Zomato URLs, and kept 13 URLs split across two restaurant records, usually because the address is written differently.
 
@@ -264,13 +268,13 @@ An area or cuisine that isn't in the metadata is rejected with an error, rather 
 If fewer than 5 restaurants remain, relax one constraint at a time and stop as soon as there are enough:
 
 1. Lower the minimum rating by 0.5, stopping at 0
-2. Add the next band up to the budget, so `low` becomes `low` and `medium`. This is skipped for `high` and `any`.
+2. Add a neighbouring band to the budget: `low` adds `medium`, `medium` adds `high`, and `high` adds `medium`, since it has no band above it. This is skipped for `any`.
 
-Each happens at most once, so results stay close to the request. A relaxation that adds no restaurants is undone and not reported.
+Each happens at most once, so results stay close to the request. A relaxation that adds no restaurants is undone and not reported. When a budget widens, restaurants in the requested budget rank first, so the many added ones can't push them out.
 
 Area and cuisine are never relaxed, because a result outside them would not be what the user asked for. Every relaxation is returned with the results and shown in the UI, for example: "No matches at 4.5+, so this includes 4.0+".
 
-If nothing remains after relaxing, the app makes no LLM call and suggests changing the area or cuisine.
+If nothing remains after relaxing, the app makes no LLM call and suggests changing the area, budget or cuisine.
 
 ### Step 3: Score and cut to 15
 
@@ -373,11 +377,11 @@ Write a 1 to 2 sentence summary comparing your top choices.
 
 ```text
 <preferences>
-{"area": "Indiranagar", "budget": "medium (₹330 to ₹500 for two)", "cuisines": ["Italian"], "min_rating": 4.0}
+{"area": "Indiranagar", "budget": "medium (₹500 to ₹1,500 for two)", "cuisines": ["Italian"], "min_rating": 4.0}
 </preferences>
 
 <applied_limits>
-{"budget": "medium (₹330 to ₹500 for two)", "min_rating": 3.5}
+{"budget": "medium (₹500 to ₹1,500 for two)", "min_rating": 3.5}
 </applied_limits>
 
 <diner_notes>family-friendly, quick service</diner_notes>
@@ -521,7 +525,7 @@ The user should always get a useful result or a clear next step.
 | --- | --- | --- |
 | Data files missing | Check at startup | Setup message naming the ingest command |
 | API key missing | Check at startup | Setup message; filtered results still work |
-| No matches after relaxing | Empty candidate list | Suggestion to change the area or cuisine; no API call made |
+| No matches after relaxing | Empty candidate list | Suggestion to change the area, budget or cuisine; no API call made |
 | Rate limited or server error | `RateLimitError`, `APIStatusError` after SDK retries | Top 5 by score, with "AI explanations are unavailable right now" |
 | Network failure or timeout | `APIConnectionError`, `APITimeoutError` | Same as above |
 | Refusal or truncated response | `stop_reason` of `refusal` or `max_tokens` | Same as above |

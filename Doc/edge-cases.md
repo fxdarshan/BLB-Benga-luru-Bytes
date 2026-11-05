@@ -90,10 +90,11 @@ Reviewing the documents turned up these problems, which were likely to cause rea
 
 | ID | Scenario | Expected behaviour | Status |
 | --- | --- | --- | --- |
-| DAT-28 | Costs cluster, making bands uneven | Upper edges are inclusive, and the script checks no band is nearly empty | Covered |
-| DAT-29 | Clustering makes two tercile edges equal, leaving one band empty | Stop with a clear error, or move an edge to the next distinct cost | Covered |
-| DAT-30 | A cost is exactly on a band edge | It belongs only to the lower band | Covered |
-| DAT-31 | Extreme values such as ₹40 or ₹6,000 | They stay in the data, and the high band displays as "₹X and above" | Covered |
+| DAT-28 | The fixed ranges are uneven, with few restaurants in the high band | Accepted, and the report shows each band's size | Covered |
+| DAT-29 | A budget band has no restaurants | Stop with a clear error | Covered |
+| DAT-30 | A cost is exactly on a band edge | Exactly ₹500 and exactly ₹1,500 are both medium | Covered |
+| DAT-32 | A high-budget search in an area with few or no such restaurants, such as Banashankari | Widen down to medium, with a notice saying so. Any high-budget restaurants rank first. | Covered |
+| DAT-31 | Extreme values such as ₹40 or ₹6,000 | They stay in the data, in the low and high bands | Covered |
 
 ### Deduplication
 
@@ -145,7 +146,7 @@ Reviewing the documents turned up these problems, which were likely to cause rea
 | --- | --- | --- | --- |
 | REL-01 | 5 or more results before relaxing | No relaxation | Covered |
 | REL-02 | 1 to 4 results | Relax in order: rating first, then budget. Stop once there are 5. | Covered |
-| REL-03 | Budget is `high` or `any` | Skip the budget relaxation | Covered |
+| REL-03 | Budget is `high` or `any` | `high` adds `medium`, since it has no band above it. `any` has no budget to relax. | Covered |
 | REL-04 | `min_rating` is under 0.5 | Stop lowering at 0 | Covered |
 | REL-05 | Area or cuisine would need to change | Never relaxed | Covered |
 | REL-06 | Still under 5 after relaxing | Return what was found | Covered |

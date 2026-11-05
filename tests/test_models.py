@@ -62,9 +62,17 @@ def test_budget_band_upper_edge_is_inclusive():
 
 
 def test_budget_band_without_upper_limit():
-    band = BudgetBand(min=700, max=None)
+    band = BudgetBand(min=1501, max=None)
     assert band.contains(100_000)
-    assert band.label() == "₹700 and above"
+    assert not band.contains(1500)
+    assert band.label() == "above ₹1,500"
+
+
+def test_budget_band_without_lower_limit():
+    band = BudgetBand(min=None, max=499)
+    assert band.contains(40)
+    assert not band.contains(500)
+    assert band.label() == "below ₹500"
     assert BudgetBand(min=1000, max=2000).label() == "₹1,000 to ₹2,000"
 
 

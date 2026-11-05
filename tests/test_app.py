@@ -46,6 +46,7 @@ def html_blocks(app):
 
 def test_form_shows_every_preference(data_dir):
     app = start()
+    assert app.title[0].value == "BLB (Banga-Luru_Bytes)"
     assert app.selectbox[0].options == ["BTM", "HSR", "MG Road"]
     assert len(app.radio[0].options) == 4
     assert "for two" in app.radio[0].options[1]
@@ -87,7 +88,7 @@ def test_impossible_search_shows_empty_message(data_dir):
     app.selectbox[0].select("HSR")
     app.slider[0].set_value(5.0)
     submit(app)
-    assert any("Try a different area or cuisine" in w.value for w in app.warning)
+    assert any("Try a different area, budget or cuisine" in w.value for w in app.warning)
     assert not any("AI explanations" in w.value for w in app.warning)
     assert len(html_blocks(app)) == 1
 

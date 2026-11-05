@@ -24,7 +24,8 @@ KEYWORD_BOOST = 0.25
 MAX_KEYWORD_HITS = 2
 UNRATED_PENALTY = 0.25
 
-BUDGET_ORDER = ("low", "medium", "high")
+# The band added when too few restaurants match. High has no band above it, so it widens down.
+NEXT_BUDGET = {"low": "medium", "medium": "high", "high": "medium"}
 
 _COMMON_WORDS = frozenset(
     "a about an and any are as at be but by can for from get good great i in is it like me my near "
@@ -176,8 +177,8 @@ def _select_with_relaxation(
             )
             matches, min_rating = wider, lower
 
-    if len(matches) < min_results and budgets and budgets[-1] != BUDGET_ORDER[-1]:
-        next_band = BUDGET_ORDER[BUDGET_ORDER.index(budgets[-1]) + 1]
+    if len(matches) < min_results and budgets:
+        next_band = NEXT_BUDGET[budgets[-1]]
         wider_budgets = (*budgets, next_band)
         wider = _filter(preferences, repository, min_rating, wider_budgets)
         if len(wider) > len(matches):
@@ -219,7 +220,17 @@ def select_candidates(
         local = bool(area.search(restaurant.location_text))
         score = score_restaurant(restaurant, hits, metadata, in_chosen_area=local)
         scored.append(Candidate(restaurant, score, hits, local))
-    scored.sort(key=lambda c: (-c.score, c.restaurant.rating is None, c.restaurant.restaurant_id))
+    # Widening a budget can add far more restaurants than the diner's own budget holds, and those
+    # must not push out the ones that were actually asked for.
+    requested = _budget_bands(preferences.budget)
+    scored.sort(
+        key=lambda c: (
+            not _meets_budget(c.restaurant, requested, metadata),
+            -c.score,
+            c.restaurant.rating is None,
+            c.restaurant.restaurant_id,
+        )
+    )
     return CandidateSelection(
         candidates=scored[:max_candidates],
         relaxations=relaxations,

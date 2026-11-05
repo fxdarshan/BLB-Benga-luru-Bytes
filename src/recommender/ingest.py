@@ -20,13 +20,19 @@ import pyarrow.parquet as pq
 
 from recommender import cleaning
 from recommender.config import load_settings
+from recommender.models import BudgetBand
 
 DATASET = "ManikaSaini/zomato-restaurant-recommendation"
 DATASET_REVISION = "5738e9eda2fad49ad51c6e0ed26e761d9b947133"
 EXPECTED_ROWS = 51_717
 EXPECTED_AREAS = 30
 MIN_RATED_SHARE = 0.75
-MIN_BAND_SHARE = 0.10
+# Costs for two, in rupees: below 500, 500 to 1,500, and above 1,500.
+BUDGET_BANDS = {
+    "low": {"min": None, "max": 499},
+    "medium": {"min": 500, "max": 1500},
+    "high": {"min": 1501, "max": None},
+}
 
 COST_COLUMN = "approx_cost(for two people)"
 TYPE_COLUMN = "listed_in(type)"
@@ -209,34 +215,15 @@ def add_reviews(restaurants: pd.DataFrame, stats: Counter[str]) -> pd.DataFrame:
     return restaurants.assign(review_snippets=snippets).drop(columns="reviews_raw")
 
 
-def budget_bands(costs: pd.Series) -> dict[str, dict[str, int | None]]:
-    """Split costs into three bands at the terciles, where each band's upper edge is inclusive."""
-    known = costs.dropna().astype(int)
-    if known.empty:
-        raise IngestionError("No restaurant has a usable cost")
-    low_edge = int(known.quantile(1 / 3, interpolation="lower"))
-    medium_edge = int(known.quantile(2 / 3, interpolation="lower"))
-    if low_edge >= medium_edge or medium_edge >= known.max():
-        raise IngestionError(
-            f"Costs are too clustered to form three budget bands: {low_edge}, {medium_edge}"
-        )
-    return {
-        "low": {"min": int(known.min()), "max": low_edge},
-        "medium": {"min": int(known[known > low_edge].min()), "max": medium_edge},
-        "high": {"min": int(known[known > medium_edge].min()), "max": None},
-    }
-
-
-def band_sizes(costs: pd.Series, bands: dict[str, dict[str, int | None]]) -> dict[str, int]:
+def band_sizes(costs: pd.Series) -> dict[str, int]:
     known = costs.dropna().astype(int)
     return {
-        name: int(((known >= band["min"]) & (known <= (band["max"] or known.max()))).sum())
-        for name, band in bands.items()
+        name: sum(BudgetBand(**band).contains(cost) for cost in known)
+        for name, band in BUDGET_BANDS.items()
     }
 
 
 def build_metadata(restaurants: pd.DataFrame) -> dict[str, Any]:
-    bands = budget_bands(restaurants["cost_for_two"])
     rated = restaurants["rating"].dropna()
     return {
         "dataset": DATASET,
@@ -246,8 +233,8 @@ def build_metadata(restaurants: pd.DataFrame) -> dict[str, Any]:
             {cuisine for cuisines in restaurants["cuisines"] for cuisine in cuisines},
             key=str.casefold,
         ),
-        "budget_bands": bands,
-        "budget_band_sizes": band_sizes(restaurants["cost_for_two"], bands),
+        "budget_bands": BUDGET_BANDS,
+        "budget_band_sizes": band_sizes(restaurants["cost_for_two"]),
         "mean_rating": round(float(rated.mean()), 4) if len(rated) else None,
         # At least 1, so that the weighted rating can never divide by zero.
         "median_votes": max(1, int(restaurants["votes"].median())),
@@ -273,10 +260,9 @@ def check_output(
         raise IngestionError(f"Expected {expected_areas} areas, found {len(metadata['areas'])}")
     if not restaurants["restaurant_id"].is_unique:
         raise IngestionError("Restaurant IDs are not unique")
-    with_costs = int(restaurants["cost_for_two"].notna().sum())
     for name, size in metadata["budget_band_sizes"].items():
-        if size < MIN_BAND_SHARE * with_costs:
-            raise IngestionError(f"Budget band '{name}' is nearly empty, with {size:,} restaurants")
+        if size == 0:
+            raise IngestionError(f"Budget band '{name}' has no restaurants")
 
 
 def run_pipeline(
@@ -317,6 +303,7 @@ def run_pipeline(
 def content_hash(restaurants: pd.DataFrame) -> str:
     """Identify the data by its content, so that an identical rebuild keeps the same ID."""
     digest = hashlib.sha256(DATASET_REVISION.encode())
+    digest.update(json.dumps(BUDGET_BANDS, sort_keys=True).encode())
     columns = restaurants[list(OUTPUT_COLUMNS)].astype("object")
     for row in columns.itertuples(index=False, name=None):
         digest.update(json.dumps(row, default=_json_value, ensure_ascii=False).encode("utf-8"))
@@ -369,10 +356,8 @@ def format_report(result: IngestResult, restaurants_path: Path, metadata_path: P
     sizes = meta["budget_band_sizes"]
     band_lines = []
     for name, band in bands.items():
-        upper = f"to Rs {band['max']:,}" if band["max"] else "and above"
-        band_lines.append(
-            row(f"Budget: {name}", f"Rs {band['min']:,} {upper} ({sizes[name]:,} restaurants)")
-        )
+        label = BudgetBand(**band).label()
+        band_lines.append(row(f"Budget: {name}", f"{label} ({sizes[name]:,} restaurants)"))
 
     return "\n".join(
         [

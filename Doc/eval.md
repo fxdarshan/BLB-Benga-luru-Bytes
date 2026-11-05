@@ -40,7 +40,7 @@ There are **20 paid cases**, plus 1 free control case. Another 5 [confirmation c
 
 Only areas from the dataset's area list and cuisines seen in sampled rows are used. Whether each combination behaves as intended is [checked by a preflight script](#preflight-checks) once the data is built.
 
-Trying these on the real data led to three changes. C1 was relaxing, and R1 and R2 had no matches at all, so they now use searches that behave as intended. **N1 still needs replacing:** it currently gets no unrated restaurants in its top 15, because unrated restaurants score below the many rated ones in a large area.
+Trying these on the real data led to changes to C1, R1 and R2, so they now use searches that behave as intended with the current budget ranges. **N1 still needs replacing:** it currently gets no unrated restaurants in its top 15, because unrated restaurants score below the many rated ones in a large area.
 
 | ID | Tag | Area | Cuisine | Budget | Min. rating | Additional preferences | What it tests |
 | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -53,8 +53,8 @@ Trying these on the real data led to three changes. C1 was relaxing, and R1 and 
 | S4 | `soft-confirmable` | Brigade Road | | any | 3.5 | pub for drinks with friends | Data signal: `Pubs and bars` or `Drinks & nightlife` |
 | U1 | `soft-unconfirmable` | HSR | | medium | 3.5 | family-friendly | `SEM-01` |
 | U2 | `soft-unconfirmable` | Lavelle Road | | any | 3.5 | open now, has parking | `SEM-05` |
-| R1 | `relaxed` | BTM | Thai | medium | 4.3 | | Rating relaxation, `PRM-01` |
-| R2 | `relaxed` | Banashankari | Italian | low | 4.0 | | Budget relaxation, `PRM-01` |
+| R1 | `relaxed` | BTM | Thai | medium | 4.6 | | Rating relaxation, `PRM-01` |
+| R2 | `relaxed` | BTM | Thai | low | 4.0 | | Rating and budget relaxation, `PRM-01` |
 | N1 | `unrated` | JP Nagar | | any | 4.0 | new places worth trying | Unrated restaurants included, `PRM-02` |
 | X1 | `conflict` | Whitefield | | high | 4.0 | really cheap | `SEM-02` |
 | X2 | `conflict` | BTM | Italian | any | 3.5 | I want Chinese food | `SEM-03` |

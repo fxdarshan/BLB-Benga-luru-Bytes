@@ -10,10 +10,11 @@ from recommender.models import BudgetBand, Preferences
 from recommender.repository import INGEST_COMMAND, DataUnavailableError, RestaurantRepository
 from recommender.service import RecommendationService
 
+APP_NAME = "BLB (Banga-Luru_Bytes)"
 BUDGET_OPTIONS = ("any", "low", "medium", "high")
 NO_RESULTS_MESSAGE = (
     "No restaurants match this search, even after loosening the rating and budget. "
-    "Try a different area or cuisine."
+    "Try a different area, budget or cuisine."
 )
 DATA_NOTE = (
     "Data comes from a fixed Zomato snapshot for Bangalore, so some places may have closed or "
@@ -89,8 +90,8 @@ def show_results(preferences: Preferences, repository: RestaurantRepository, res
 
 
 def main() -> None:
-    st.set_page_config(page_title="Bangalore Restaurant Finder", page_icon="🍽️")
-    st.title("Bangalore Restaurant Finder")
+    st.set_page_config(page_title=APP_NAME, page_icon="🍽️")
+    st.title(APP_NAME)
     st.caption("Tell us what you're looking for, and we'll suggest where to eat.")
 
     try:

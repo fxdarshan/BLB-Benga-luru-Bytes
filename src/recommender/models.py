@@ -81,19 +81,22 @@ class Restaurant:
 
 
 class BudgetBand(BaseModel):
-    """A range of costs for two, in rupees. A `max` of `None` means no upper limit."""
+    """A range of costs for two, in rupees. `None` means no limit on that side."""
 
     model_config = ConfigDict(frozen=True)
 
-    min: int
+    min: int | None
     max: int | None
 
     def contains(self, cost: int) -> bool:
-        return cost >= self.min and (self.max is None or cost <= self.max)
+        above_min = self.min is None or cost >= self.min
+        return above_min and (self.max is None or cost <= self.max)
 
     def label(self) -> str:
+        if self.min is None:
+            return f"below ₹{self.max + 1:,}"
         if self.max is None:
-            return f"₹{self.min:,} and above"
+            return f"above ₹{self.min - 1:,}"
         return f"₹{self.min:,} to ₹{self.max:,}"
 
 

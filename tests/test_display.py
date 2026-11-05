@@ -43,7 +43,7 @@ def test_format_cuisines():
 def test_budget_labels_show_rupee_ranges():
     assert budget_option_label("any", BANDS) == "Any budget"
     assert budget_option_label("low", BANDS) == "Low (₹100 to ₹300 for two)"
-    assert budget_option_label("high", BANDS) == "High (₹700 and above for two)"
+    assert budget_option_label("high", BANDS) == "High (above ₹699 for two)"
 
 
 def test_card_shows_every_required_field():

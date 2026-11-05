@@ -189,11 +189,55 @@ def test_widening_low_keeps_low_and_adds_medium():
     assert {c.restaurant.cost_for_two for c in selection.candidates} == {200, 500}
 
 
-@pytest.mark.parametrize("budget", ["high", "any"])
-def test_budget_never_relaxes_when_it_cannot_widen(budget):
+def test_high_budget_widens_down_to_medium():
+    repository = make_repository(
+        *rated("high", 2, 4.5, cost=900),
+        *rated("medium", 4, 4.5, cost=500),
+        *rated("low", 4, 4.5, cost=200),
+    )
+    selection = search(repository, budget="high", min_rating=4.0)
+    assert selection.applied_budgets == ("high", "medium")
+    assert {c.restaurant.cost_for_two for c in selection.candidates} == {900, 500}
+    relaxation = selection.relaxations[0]
+    assert (relaxation.limit, relaxation.requested) == ("budget", "high")
+    assert "high" in relaxation.message and "also includes medium" in relaxation.message
+
+
+def test_high_budget_with_no_matches_can_still_widen_to_medium():
+    selection = search(make_repository(*rated("medium", 3, 4.5, cost=500)), budget="high")
+    assert selection.applied_budgets == ("high", "medium")
+    assert len(selection.candidates) == 3
+
+
+def test_medium_budget_widens_up_to_high():
+    repository = make_repository(*rated("medium", 1, 4.5), *rated("high", 4, 4.5, cost=900))
+    selection = search(repository, budget="medium", min_rating=4.0)
+    assert selection.applied_budgets == ("medium", "high")
+
+
+def test_requested_budget_ranks_ahead_of_widened_budget():
+    repository = make_repository(
+        make_restaurant("widened_best", rating=4.9, votes=5000, cost_for_two=500),
+        make_restaurant("widened_next", rating=4.8, votes=5000, cost_for_two=500),
+        make_restaurant("asked_for", rating=3.6, votes=10, cost_for_two=900),
+    )
+    selection = search(repository, budget="high", min_rating=3.5)
+    assert ids(selection) == ["asked_for", "widened_best", "widened_next"]
+
+
+def test_requested_budget_survives_the_candidate_cut():
+    repository = make_repository(
+        make_restaurant("asked_for", rating=3.6, votes=10, cost_for_two=900),
+        *[make_restaurant(f"m{i}", rating=4.5, cost_for_two=500) for i in range(20)],
+    )
+    selection = search(repository, budget="high", min_rating=3.5)
+    assert ids(selection)[0] == "asked_for"
+    assert len(selection.candidates) == 15
+
+
+def test_any_budget_never_relaxes():
     repository = make_repository(*rated("a", 2, 4.5, cost=900))
-    selection = search(repository, budget=budget, min_rating=4.0)
-    assert selection.relaxations == []
+    assert search(repository, budget="any", min_rating=4.0).relaxations == []
 
 
 def test_rating_relaxes_only_once():

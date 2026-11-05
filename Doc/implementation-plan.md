@@ -73,7 +73,7 @@ flowchart LR
 - [x] Load the dataset and drop `url`, `phone` and `menu_item`
 - [x] Apply the cleaning functions
 - [x] Deduplicate on normalised `(name, address)`, keeping the row with the most votes and merging areas and listing types
-- [x] Compute metadata: areas, cuisines, budget terciles, mean rating `C`, median votes `m` and a `build_id` for this run
+- [x] Compute metadata: areas, cuisines, the chosen budget ranges, mean rating `C`, median votes `m` and a `build_id` for this run
 - [x] Run the [ingestion checks](architecture.md#ingestion-checks)
 - [x] Write `restaurants.parquet`, `metadata.json` and the printed report
 
@@ -82,7 +82,7 @@ flowchart LR
 | Item | Guidance |
 | --- | --- |
 | Sets in Parquet | `areas` and `listing_types` are sets in the design, but Parquet stores lists. Save sorted lists, and treat them as sets when loading. |
-| Budget band edges | Costs cluster on round numbers such as 300 and 400, so terciles may be uneven. Define each band's upper edge as inclusive, and check that no band is nearly empty. |
+| Budget band edges | The ranges are fixed at below ₹500, ₹500 to ₹1,500, and above ₹1,500. Check that no band is empty. |
 | Layered mojibake | Compare a sample of names and reviews before and after `ftfy`. Confirm on real rows that repairing reviews after parsing gives clean text. If corruption remains, record how much in the report. |
 | Row-level assumptions | The dataset findings came from viewer statistics and a few sample rows. Check them against the full data, and update `architecture.md` if they differ. |
 
@@ -127,7 +127,7 @@ The architecture leaves these edge cases open. The suggested behaviour is below.
 
 | Case | Suggested behaviour |
 | --- | --- |
-| Budget is `high`, so there is no band above it | Skip the budget relaxation |
+| Budget is `high`, so there is no band above it | Add `medium` instead, with the usual notice |
 | Budget is `any` | Skip the budget relaxation |
 | Minimum rating is under 0.5 | Stop lowering at 0, and record no relaxation if nothing changes |
 | Keyword matching | Lowercase the text and split on commas. Words match whole. Match each whole phrase first, then its remaining words, ignoring common words and common review words as described in [section 7](architecture.md#step-3-score-and-cut-to-15) |
@@ -173,7 +173,7 @@ The architecture leaves these edge cases open. The suggested behaviour is below.
   - [x] Build the form from [section 6](architecture.md#6-user-input), with rupee ranges beside the budget options
   - [x] Build result cards, showing "New" or "Unrated" for a missing rating
   - [x] Show relaxation notices
-  - [x] Show the empty-result message, suggesting a different area or cuisine
+  - [x] Show the empty-result message, suggesting a different area, budget or cuisine
   - [x] Show the "not AI-ranked" notice
 - [x] Render dataset text as plain text, not Markdown or HTML. `display.py` escapes it for `st.html`.
 

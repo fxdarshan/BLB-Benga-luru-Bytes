@@ -104,20 +104,22 @@ flowchart LR
 
 ## Phase 2: Candidate Selection
 
+**Status: complete.** All tests pass, and selection takes about 2 ms on the real data. Sample searches showed that most results were outside the chosen area, so restaurants located there now get a [score boost](architecture.md#area-accuracy).
+
 **Goal:** Given a set of preferences, return the best-scoring restaurants that match, up to 15.
 
 **Design:** [Sections 6 and 7](architecture.md#6-user-input)
 
 ### Tasks
 
-- [ ] Add `Preferences` and `Restaurant` to `models.py`, with validation (rating 0 to 5, free text capped at 300 characters)
-- [ ] Write `repository.py` to load the Parquet file and metadata, with a clear error if they are missing or their `build_id` values differ, and convert `NaN` and NumPy values to `None`, plain lists and Python numbers
-- [ ] In `candidates.py`, write:
-  - [ ] Hard filters for area, budget, cuisine and rating
-  - [ ] Relaxation, which records each change it makes
-  - [ ] Keyword extraction from the free text
-  - [ ] Scoring with the Bayesian weighted rating, keyword boost and the unrated score of `C - 0.25`
-  - [ ] `select_candidates()`, which returns candidates and relaxations
+- [x] Add `Preferences` and `Restaurant` to `models.py`, with validation (rating 0 to 5, free text capped at 300 characters)
+- [x] Write `repository.py` to load the Parquet file and metadata, with a clear error if they are missing or their `build_id` values differ, and convert `NaN` and NumPy values to `None`, plain lists and Python numbers
+- [x] In `candidates.py`, write:
+  - [x] Hard filters for area, budget, cuisine and rating
+  - [x] Relaxation, which records each change it makes
+  - [x] Keyword extraction from the free text
+  - [x] Scoring with the Bayesian weighted rating, keyword boost, location boost and the unrated score of `C - 0.25`
+  - [x] `select_candidates()`, which returns candidates and relaxations
 
 ### Details to settle in this phase
 
@@ -128,7 +130,7 @@ The architecture leaves these edge cases open. The suggested behaviour is below.
 | Budget is `high`, so there is no band above it | Skip the budget relaxation |
 | Budget is `any` | Skip the budget relaxation |
 | Minimum rating is under 0.5 | Stop lowering at 0, and record no relaxation if nothing changes |
-| Keyword matching | Lowercase the text and split on commas. Match each whole phrase first, then its remaining words, ignoring common words and common review words as described in [section 7](architecture.md#step-3-score-and-cut-to-15) |
+| Keyword matching | Lowercase the text and split on commas. Words match whole. Match each whole phrase first, then its remaining words, ignoring common words and common review words as described in [section 7](architecture.md#step-3-score-and-cut-to-15) |
 | Fewer than 5 results after relaxing | Return what was found. The app only shows the empty message when there are none. |
 
 ### Tests
@@ -140,6 +142,7 @@ The architecture leaves these edge cases open. The suggested behaviour is below.
 - Area and cuisine are never relaxed
 - A 5.0 rating with 3 votes scores below a 4.5 rating with 2,000 votes
 - A keyword match raises a restaurant's score
+- A restaurant located in the chosen area scores above a similar one that's only listed there
 - "quick service" gets no hit from a review that only contains the word "service"
 - An unrated restaurant scores below a well-reviewed restaurant rated just under `C`
 - Loaded records contain `None`, plain lists and Python numbers, with no `NaN` or NumPy arrays
@@ -148,9 +151,9 @@ The architecture leaves these edge cases open. The suggested behaviour is below.
 
 ### Exit criteria
 
-- [ ] All tests pass
-- [ ] Candidate selection takes under 100 ms on the real data
-- [ ] Sample searches for several areas look sensible by hand
+- [x] All tests pass
+- [x] Candidate selection takes under 100 ms on the real data
+- [x] Sample searches for several areas look sensible by hand
 
 ## Phase 3: UI with Score-Ranked Results
 
@@ -205,7 +208,7 @@ The architecture leaves these edge cases open. The suggested behaviour is below.
 **Build the modules**
 
 - [ ] Add `Recommendation` and `RankingResponse` to `models.py`
-- [ ] Write `prompts.py`: the system prompt, `PROMPT_VERSION`, and a user message builder that assigns `R1` to `R15` aliases, picks up to 2 review snippets per candidate, includes `<applied_limits>`, and escapes `<` and `>` in data
+- [ ] Write `prompts.py`: the system prompt, `PROMPT_VERSION`, and a user message builder that assigns `R1` to `R15` aliases, picks up to 2 review snippets per candidate, includes `<applied_limits>` and each candidate's `in_chosen_area`, and escapes `<` and `>` in data
 - [ ] Write `llm.py`: the client call, fallback options for supported models only, `stop_reason` and missing text block checks, and a single `LLMUnavailable` error for the service to catch
 - [ ] Write `validation.py`: the [grounding checks](architecture.md#response-validation), including replacing aliases with restaurant names
 - [ ] Update `service.py`: call the LLM, validate, map aliases back, and fall back on failure, recording a `failure_reason`
@@ -316,6 +319,7 @@ All of these use a fake LLM client, so they cost nothing.
 - [ ] Tune one thing at a time, re-running the evaluation after each change:
   - The prompt wording
   - The keyword boost weight of `0.25`
+  - The location boost of `0.5`
   - The unrated penalty of `0.25`
   - The ignored review words
   - The effort level

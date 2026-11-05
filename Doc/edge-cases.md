@@ -82,7 +82,7 @@ Reviewing the documents turned up these problems, which were likely to cause rea
 | DAT-22 | After loading, nulls are `NaN` and lists are NumPy arrays, so `is None` and `if array:` misbehave | Convert in one place in `repository.py`, so the rest of the code sees `None`, plain lists and Python numbers | Covered |
 | DAT-23 | Sets can't be stored in Parquet | Save sorted lists, and treat them as sets on loading | Covered |
 | DAT-24 | Ingestion crashes while writing, leaving a partial file | Write to a temporary file, then rename it | Covered |
-| DAT-25 | `restaurants.parquet` and `metadata.json` come from different runs | Store a shared build ID in both, and show the setup message if they differ | New |
+| DAT-25 | `restaurants.parquet` and `metadata.json` come from different runs | Store a shared build ID in both, and show the setup message if they differ | Covered |
 | DAT-26 | The report contains `₹` or corrupted text, and the Windows console can't print it | Set UTF-8 output, and don't let printing fail the run | Covered |
 | DAT-27 | The script runs from a folder other than the project root, so `./data` points elsewhere | Resolve `DATA_DIR` from a fixed base, and print the absolute path | Covered |
 
@@ -114,12 +114,12 @@ Reviewing the documents turned up these problems, which were likely to cause rea
 
 | ID | Scenario | Expected behaviour | Status |
 | --- | --- | --- | --- |
-| INP-01 | `area` isn't one of the 30 areas, which the UI blocks but the service could still receive | The service rejects it with a clear error, since `str` alone doesn't check this | New |
+| INP-01 | `area` isn't one of the 30 areas, which the UI blocks but the service could still receive | The service rejects it with a clear error, since `str` alone doesn't check this | Covered |
 | INP-02 | `min_rating` is outside 0 to 5 | Rejected by validation | Covered |
 | INP-03 | Free text is over 300 characters | Limit the input box, and have validation reject anything longer | Covered |
-| INP-04 | Free text is empty or only spaces | Treat as no additional preferences, with no keyword search or empty prompt tag | New |
-| INP-05 | A chosen cuisine isn't in the metadata | Rejected by validation | New |
-| INP-06 | The slider gives `3.3000000000000003` | Round to one decimal place before comparing or building cache keys | New |
+| INP-04 | Free text is empty or only spaces | Treat as no additional preferences, with no keyword search or empty prompt tag | Covered |
+| INP-05 | A chosen cuisine isn't in the metadata | Rejected by validation | Covered |
+| INP-06 | The slider gives `3.3000000000000003` | Round to one decimal place before comparing or building cache keys | Covered |
 
 ### Filters
 
@@ -133,8 +133,11 @@ Reviewing the documents turned up these problems, which were likely to cause rea
 | FIL-06 | A rating equals `min_rating` exactly | Passes, since the check is `>=` | Covered |
 | FIL-07 | Unrated, with `include_unrated` off | Excluded | Covered |
 | FIL-08 | Unrated, with `include_unrated` on | Included at any `min_rating` | Covered |
-| FIL-09 | A restaurant is listed under the chosen area, but its `location` differs | It matches. Show its neighbourhood so the difference is clear. | Covered |
-| FIL-10 | A user wants "Koramangala", but the 30 areas split it into the 4th to 7th Blocks | v1 keeps separate options, since only one area can be picked. Combining them could be later work. | New |
+| FIL-09 | A restaurant is listed under the chosen area, but its `location` differs | It matches, without the location boost. Show its neighbourhood so the difference is clear. | Covered |
+| FIL-11 | The chosen area's name appears only as a landmark in the address, such as "near MG Road" | It counts as local and gets the boost. This is a known limit of text matching. | Covered |
+| FIL-12 | A restaurant has no location or address | It gets no boost, and can still match through its listed areas | Covered |
+| FIL-13 | A similar area name appears, such as Koramangala 6th Block for a 5th Block search | No boost, since only the exact area name counts | Covered |
+| FIL-10 | A user wants "Koramangala", but the 30 areas split it into the 4th to 7th Blocks | v1 keeps separate options, since only one area can be picked. Combining them could be later work. | Covered |
 
 ### Relaxation
 
@@ -147,10 +150,10 @@ Reviewing the documents turned up these problems, which were likely to cause rea
 | REL-05 | Area or cuisine would need to change | Never relaxed | Covered |
 | REL-06 | Still under 5 after relaxing | Return what was found | Covered |
 | REL-07 | No results after relaxing | No LLM call, and suggest changing area or cuisine | Covered |
-| REL-08 | It isn't clear whether rating relaxes once or repeatedly | Once only, at most 0.5 lower, so results stay close to the request | New |
-| REL-09 | Widening `low` to the next band could be read as replacing it | The result includes both `low` and `medium` | New |
-| REL-10 | A relaxation adds no new restaurants | Undo it and don't report it. The plan covers only the case where the rating value doesn't change. | New |
-| REL-11 | `4.1 - 0.5` gives `3.5999999999999996` | Round before filtering and displaying | New |
+| REL-08 | It isn't clear whether rating relaxes once or repeatedly | Once only, at most 0.5 lower, so results stay close to the request | Covered |
+| REL-09 | Widening `low` to the next band could be read as replacing it | The result includes both `low` and `medium` | Covered |
+| REL-10 | A relaxation adds no new restaurants | Undo it and don't report it. The plan covers only the case where the rating value doesn't change. | Covered |
+| REL-11 | `4.1 - 0.5` gives `3.5999999999999996` | Round before filtering and displaying | Covered |
 | REL-12 | The notice must state what changed, such as "includes 4.0+" | Use the relaxed value, and the actual rupee range for budgets | Covered |
 
 ### Scoring and the candidate cut
@@ -158,17 +161,17 @@ Reviewing the documents turned up these problems, which were likely to cause rea
 | ID | Scenario | Expected behaviour | Status |
 | --- | --- | --- | --- |
 | SCO-01 | A 5.0 rating with 3 votes against a 4.5 rating with 2,000 votes | The 4.5 scores higher | Covered |
-| SCO-02 | `v + m` is 0, because a restaurant has no votes and the median is 0 | Use a minimum of 1 for `m`, to avoid dividing by zero | New |
+| SCO-02 | `v + m` is 0, because a restaurant has no votes and the median is 0 | Use a minimum of 1 for `m`, to avoid dividing by zero | Covered |
 | SCO-03 | An unrated restaurant scores `C`, beating a well-reviewed restaurant rated below `C` | Its weighted rating is `C - 0.25`, with the penalty tuned in Phase 6 | Covered |
-| SCO-04 | A rated restaurant has 0 votes | Its score is `C`, which is correct since a rating with no votes is no evidence | New |
+| SCO-04 | A rated restaurant has 0 votes | Its score is `C`, which is correct since a rating with no votes is no evidence | Covered |
 | SCO-05 | Scores tie | Rated before unrated, then by `restaurant_id`, so order is stable | Covered |
 | SCO-06 | "quick service" splits into words, and "service" matches nearly every review | Match the full comma-separated phrase first, then its remaining words, with common review words ignored | Covered |
-| SCO-07 | "bar" matches "barbecue", or "veg" matches "non-veg" | Match whole words only | New |
-| SCO-08 | Free text has regex characters, such as `c++` or `(`, and would break the pattern | Escape it before matching | New |
-| SCO-09 | Negative wording, such as "no buffet" or "not spicy", boosts matching restaurants | Keyword scoring can't understand this, so accept it. The small boost limits the harm, and the LLM reads the full text. | New |
-| SCO-10 | Free text is only common words, or uses Hindi, Kannada or emoji | No keyword hits, and the search still works | New |
+| SCO-07 | "bar" matches "barbecue", or "veg" matches "non-veg" | Match whole words only | Covered |
+| SCO-08 | Free text has regex characters, such as `c++` or `(`, and would break the pattern | Escape it before matching | Covered |
+| SCO-09 | Negative wording, such as "no buffet" or "not spicy", boosts matching restaurants | Keyword scoring can't understand this, so accept it. The small boost limits the harm, and the LLM reads the full text. | Covered |
+| SCO-10 | Free text is only common words, or uses Hindi, Kannada or emoji | No keyword hits, and the search still works | Covered |
 | SCO-11 | The same term matches many times | It counts as one hit, and the total is capped at 2 | Covered |
-| SCO-12 | A matching review sits outside the 5 kept snippets | It won't be found. This is a known limit. | New |
+| SCO-12 | A matching review sits outside the 5 kept snippets | It won't be found. This is a known limit. | Covered |
 | SCO-13 | Exactly 15 or 16 candidates | Never more than 15 sent | Covered |
 | SCO-14 | Branches of one chain fill all 15 slots | Limit each normalised name to 3 candidates before the cut | New |
 

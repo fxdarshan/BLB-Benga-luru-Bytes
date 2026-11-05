@@ -26,7 +26,7 @@ The app covers **Bangalore only**, to match the dataset. The problem statement g
 | --- | --- | --- | --- |
 | Language | Python 3.11, pinned in `.python-version` | Fits the data tooling; the current `anthropic` SDK needs 3.10+, and the newest Python releases can lack library support | |
 | UI | Streamlit | One process, built-in form widgets, no separate frontend | FastAPI + React: more to build, with no extra requirement met |
-| Data processing | pandas | Handles the row count comfortably in memory | Spark, Polars: not needed at this size |
+| Data processing | pandas during ingestion, plain Python records for searches | Handles the row count comfortably in memory, and a search takes about 2 ms | Spark, Polars: not needed at this size |
 | Storage | Parquet file loaded into memory | The data is read-only and rebuilt by a script | Postgres: no writes to justify a database server |
 | Retrieval | Structured filters plus keyword scoring | Preferences are mostly structured fields | Vector database: added complexity before there is evidence it is needed |
 | LLM | Claude Opus 5.5 (`claude-opus-5-5`) | Strong judgement on ranking and explanation; the model ID is configurable | |
@@ -65,7 +65,7 @@ flowchart TB
     subgraph App["Streamlit app: one process"]
         UI[UI layer<br/>form and result cards]
         SVC[Recommendation service<br/>orchestrates one search]
-        REPO[Restaurant repository<br/>in-memory DataFrame]
+        REPO[Restaurant repository<br/>in-memory records]
         FILT[Candidate selector<br/>filter, relax, score]
         PROMPT[Prompt builder]
         LLM[LLM client<br/>schema and error handling]
@@ -139,7 +139,7 @@ sequenceDiagram
 │   ├── models.py             # Preferences, Restaurant, RankingResponse, and result types
 │   ├── ingest.py             # Offline pipeline entry point
 │   ├── cleaning.py           # parse_rate, parse_cost, parse_reviews, and similar
-│   ├── repository.py         # Loads Parquet, exposes the DataFrame and metadata
+│   ├── repository.py         # Loads Parquet, exposes records and metadata
 │   ├── candidates.py         # Filtering, relaxation, scoring
 │   ├── prompts.py            # System prompt and user prompt builder
 │   ├── llm.py                # Claude API call and error mapping
@@ -221,7 +221,7 @@ The report prints the counts of duplicates removed, null fields, review parse fa
 
 ### Loading the data
 
-When pandas reads the Parquet file, nulls become `NaN` and list columns become NumPy arrays. That breaks `is None` checks, `if value:` checks and `json.dumps`. `repository.py` converts these in one place when loading, so all other code sees `None`, plain lists and plain Python numbers. The prompt builder also calls `json.dumps` with `allow_nan=False`, so any value that gets through raises an error instead of producing invalid JSON.
+If pandas read the Parquet file, nulls would become `NaN` and list columns would become NumPy arrays, which breaks `is None` checks, `if value:` checks and `json.dumps`. So `repository.py` reads rows through pyarrow into `Restaurant` records, and all other code sees `None`, plain lists and plain Python numbers. Loading takes about 2 seconds. It stops with a clear error naming the ingest command if the files are missing, damaged, in an older format or from different builds. The prompt builder also calls `json.dumps` with `allow_nan=False`, so any value that gets through raises an error instead of producing invalid JSON.
 
 ## 6. User Input
 
@@ -250,6 +250,8 @@ class Preferences(BaseModel):
 
 All active filters must pass:
 
+An area or cuisine that isn't in the metadata is rejected with an error, rather than treated as having no matches.
+
 - `area in restaurant.areas`
 - `cost_for_two` is within the budget band, unless the budget is `any`. A null cost fails.
 - At least one cuisine matches, if any were chosen
@@ -259,8 +261,10 @@ All active filters must pass:
 
 If fewer than 5 restaurants remain, relax one constraint at a time and stop as soon as there are enough:
 
-1. Lower the minimum rating by 0.5
-2. Widen the budget to the next band up
+1. Lower the minimum rating by 0.5, stopping at 0
+2. Add the next band up to the budget, so `low` becomes `low` and `medium`. This is skipped for `high` and `any`.
+
+Each happens at most once, so results stay close to the request. A relaxation that adds no restaurants is undone and not reported.
 
 Area and cuisine are never relaxed, because a result outside them would not be what the user asked for. Every relaxation is returned with the results and shown in the UI, for example: "No matches at 4.5+, so this includes 4.0+".
 
@@ -272,7 +276,7 @@ Sending every match would raise cost and latency, so the top 15 go to the LLM. A
 
 ```text
 weighted_rating = (v / (v + m)) * R + (m / (v + m)) * C
-score           = weighted_rating + 0.25 * min(keyword_hits, 2)
+score           = weighted_rating + 0.25 * min(keyword_hits, 2) + location_boost
 ```
 
 | Symbol | Meaning |
@@ -280,13 +284,35 @@ score           = weighted_rating + 0.25 * min(keyword_hits, 2)
 | `R`, `v` | The restaurant's rating and vote count |
 | `C` | Mean rating across rated restaurants, currently 3.626 |
 | `m` | Median votes per restaurant, computed at ingestion with a minimum of 1, currently 25 |
+| `location_boost` | 0.5 if the chosen area's name appears in the restaurant's location or address, otherwise 0 |
 | `keyword_hits` | Comma-separated phrases from `additional` found in `rest_types`, `dishes`, `listing_types` or `review_snippets` |
 
 The keyword boost stops a restaurant that matches "quick service" from being cut before the LLM sees it. The `0.25` weight is a starting value to tune using [section 12](#12-testing).
 
-Each comma-separated phrase counts as one term. A phrase hits if the whole phrase is found. Otherwise, it hits if any of its remaining words is found, after ignoring common words such as "and" and "with" and common review words such as "service", "food" and "place". This stops "quick service" from matching nearly every review through the word "service".
+Each comma-separated phrase counts as one term. A phrase hits if the whole phrase is found. Otherwise, it hits if any of its remaining words is found, after ignoring common words such as "and" and "with" and common review words such as "service", "food" and "place". This stops "quick service" from matching nearly every review through the word "service". Words match whole, so "bar" doesn't match "barbecue" and "veg" doesn't match "non-veg". Keyword matching can't understand negatives such as "no buffet", which is left to the LLM, and it only searches the 5 reviews kept for each restaurant.
 
 Unrated restaurants have no `R`, so their weighted rating is `C - 0.25` and they sort below rated ones with the same score. Using `C` alone would put them above well-reviewed restaurants rated below the mean. This `0.25` penalty is also a starting value to tune.
+
+### Area accuracy
+
+`listed_in(city)` appears to record a wider zone than where a restaurant actually is: a median of 27% of restaurants listed under an area name that area in their location or address. Without help, far-away restaurants with high ratings would fill the results, so local restaurants get `location_boost`.
+
+| Boost | Local restaurants in the top 5 | Mean rating of the top 5 |
+| --- | --- | --- |
+| 0 | 36% | 4.53 |
+| 0.25 | 64% | 4.49 |
+| **0.5 (chosen)** | **87%** | **4.41** |
+| 0.75 | 98% | 4.35 |
+
+These figures average 5 search types across all 30 areas. At 0.5, results are mostly local, but an exceptional nearby restaurant can still appear. It's a starting value to tune in Phase 6.
+
+The check has limits:
+
+- It's text matching, so an address such as "near MG Road" counts as local. Only 1.4% of matches come from the address alone, so this should be uncommon.
+- Neighbouring places get no boost, including Koramangala's other blocks, which remain separate options since only one area can be picked.
+- Some areas have few local restaurants. Church Street and Lavelle Road have 5%, so a narrow search there can still return mostly nearby results.
+
+The card shows the neighbourhood, so a result outside the chosen area is visible.
 
 ## 8. LLM Integration
 
@@ -318,6 +344,8 @@ Choose up to 5 candidates that best fit, ordered from best to worst.
 How to rank:
 - Weigh the diner's additional preferences most heavily, then rating and vote
   count together. A high rating from very few votes is weak evidence.
+- Prefer candidates where in_chosen_area is true, unless another is clearly better
+  for this diner.
 - Prefer variety when candidates are otherwise close.
 
 How to explain:
@@ -353,7 +381,7 @@ Write a 1 to 2 sentence summary comparing your top choices.
 <diner_notes>family-friendly, quick service</diner_notes>
 
 <candidates>
-[{"id": "R1", "name": "...", "neighbourhood": "...", "cuisines": ["..."], "rest_types": ["..."],
+[{"id": "R1", "name": "...", "neighbourhood": "...", "in_chosen_area": true, "cuisines": ["..."], "rest_types": ["..."],
   "listing_types": ["..."], "rating": 4.3, "votes": 812, "cost_for_two": 700, "online_order": true,
   "book_table": false, "liked_dishes": ["..."], "review_snippets": ["..."]}]
 </candidates>
@@ -525,15 +553,15 @@ Write one structured log line per search with: a preference hash, candidate coun
 
 ### Performance targets
 
-These are targets to check, not measurements.
+Only candidate selection has been measured so far, and the others are targets to check.
 
 | Operation | Target |
 | --- | --- |
-| Candidate selection | Under 100 ms |
+| Candidate selection | Under 100 ms. Measured: median about 2 ms, slowest about 31 ms |
 | Cached search | Under 200 ms |
 | Uncached search | Under 20 seconds, to be confirmed with real calls |
 
-Load the DataFrame once using `st.cache_resource`, not on each script rerun.
+Load the repository once using `st.cache_resource`, not on each script rerun.
 
 ## 12. Testing
 

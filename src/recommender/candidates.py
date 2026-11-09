@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 from collections.abc import Iterable, Sequence
 
+from recommender.dishes import dish_pattern
 from recommender.models import (
     Candidate,
     CandidateSelection,
@@ -15,7 +16,7 @@ from recommender.models import (
 )
 from recommender.repository import RestaurantRepository
 
-DEFAULT_MAX_CANDIDATES = 15
+DEFAULT_MAX_CANDIDATES = 8
 DEFAULT_MIN_RESULTS = 5
 RATING_RELAXATION_STEP = 0.5
 # These values are starting points, to tune during evaluation.
@@ -51,21 +52,28 @@ def check_preferences(preferences: Preferences, metadata: DatasetMetadata) -> No
     unknown = [c for c in preferences.cuisines if c.casefold() not in known]
     if unknown:
         raise InvalidPreferencesError(f"Unknown cuisines: {unknown}")
+    known_dishes = {dish.casefold() for dish in metadata.dishes}
+    unknown_dishes = [d for d in preferences.dishes if d.casefold() not in known_dishes]
+    if unknown_dishes:
+        raise InvalidPreferencesError(f"Unknown dishes: {unknown_dishes}")
 
 
-def _budget_bands(budget: str) -> tuple[str, ...]:
+def serves_dish(restaurant: Restaurant, dish_patterns: Sequence[re.Pattern[str]]) -> bool:
+    """True if a restaurant serves any chosen dish, or no dish was chosen."""
+    return not dish_patterns or any(p.search(restaurant.dish_text) for p in dish_patterns)
+
+
+def budget_bands_for(budget: str) -> tuple[str, ...]:
     return () if budget == "any" else (budget,)
 
 
-def _meets_rating(restaurant: Restaurant, min_rating: float, include_unrated: bool) -> bool:
+def meets_rating(restaurant: Restaurant, min_rating: float, include_unrated: bool) -> bool:
     if restaurant.rating is None:
         return include_unrated
     return restaurant.rating >= min_rating
 
 
-def _meets_budget(
-    restaurant: Restaurant, budgets: Sequence[str], metadata: DatasetMetadata
-) -> bool:
+def meets_budget(restaurant: Restaurant, budgets: Sequence[str], metadata: DatasetMetadata) -> bool:
     if not budgets:
         return True
     cost = restaurant.cost_for_two
@@ -80,12 +88,14 @@ def _filter(
 ) -> list[Restaurant]:
     metadata = repository.metadata
     cuisine_keys = {cuisine.casefold() for cuisine in preferences.cuisines}
+    dish_patterns = [dish_pattern(dish) for dish in preferences.dishes]
     return [
         restaurant
         for restaurant in repository.in_area(preferences.area)
         if (not cuisine_keys or cuisine_keys & restaurant.cuisine_keys)
-        and _meets_budget(restaurant, budgets, metadata)
-        and _meets_rating(restaurant, min_rating, preferences.include_unrated)
+        and serves_dish(restaurant, dish_patterns)
+        and meets_budget(restaurant, budgets, metadata)
+        and meets_rating(restaurant, min_rating, preferences.include_unrated)
     ]
 
 
@@ -156,7 +166,7 @@ def _select_with_relaxation(
     """
     metadata = repository.metadata
     min_rating = preferences.min_rating
-    budgets = _budget_bands(preferences.budget)
+    budgets = budget_bands_for(preferences.budget)
     matches = _filter(preferences, repository, min_rating, budgets)
     relaxations: list[Relaxation] = []
 
@@ -222,10 +232,10 @@ def select_candidates(
         scored.append(Candidate(restaurant, score, hits, local))
     # Widening a budget can add far more restaurants than the diner's own budget holds, and those
     # must not push out the ones that were actually asked for.
-    requested = _budget_bands(preferences.budget)
+    requested = budget_bands_for(preferences.budget)
     scored.sort(
         key=lambda c: (
-            not _meets_budget(c.restaurant, requested, metadata),
+            not meets_budget(c.restaurant, requested, metadata),
             -c.score,
             c.restaurant.rating is None,
             c.restaurant.restaurant_id,

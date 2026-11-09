@@ -2,23 +2,26 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from html import escape
 
-from recommender.models import BudgetBand, Candidate, Preferences, Restaurant
+from recommender.cuisines import is_cuisine
+from recommender.dishes import dish_pattern
+from recommender.models import BudgetBand, Preferences, RankedResult, Restaurant
 
 NOT_LISTED = "Not listed"
 
-_CARD_STYLE = (
-    "border: 1px solid rgba(128, 128, 128, 0.35); border-radius: 0.5rem; "
-    "padding: 0.9rem 1.1rem; overflow-wrap: anywhere;"
+# Small line icons, drawn in the text colour. Fixed markup with no dataset or user text in it.
+_SPARKLE_ICON = (
+    '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" '
+    'stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
+    '<path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/></svg>'
 )
-_TITLE_STYLE = (
-    "display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0.25rem 1rem; "
-    "font-size: 1.1rem; font-weight: 600;"
+_WARNING_ICON = (
+    '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" '
+    'stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
+    '<path d="M12 3 2 20h20L12 3z"/><path d="M12 10v4M12 17h.01"/></svg>'
 )
-_RATING_STYLE = "font-size: 0.95rem; font-weight: 500; white-space: nowrap;"
-_DETAIL_STYLE = "margin-top: 0.3rem; opacity: 0.8;"
-_NEARBY_STYLE = "margin-top: 0.3rem; opacity: 0.8; font-size: 0.9rem; font-style: italic;"
 
 
 def format_rating(restaurant: Restaurant) -> str:
@@ -35,7 +38,11 @@ def format_cost(restaurant: Restaurant) -> str:
 
 
 def format_cuisines(restaurant: Restaurant) -> str:
-    return ", ".join(restaurant.cuisines) or f"Cuisine: {NOT_LISTED.lower()}"
+    """List real cuisines, leaving out labels such as Pizza or Cafe. A restaurant listed only with
+    such labels, such as a biryani place, shows them instead, so its card still says what it
+    serves."""
+    cuisines = [c for c in restaurant.cuisines if is_cuisine(c)] or restaurant.cuisines
+    return ", ".join(cuisines) or f"Cuisine: {NOT_LISTED.lower()}"
 
 
 def budget_option_label(name: str, bands: dict[str, BudgetBand]) -> str:
@@ -48,32 +55,189 @@ def search_summary(preferences: Preferences, bands: dict[str, BudgetBand]) -> st
     """Describe a search in words, returned as escaped HTML."""
     parts = [preferences.area, budget_option_label(preferences.budget, bands)]
     parts.append(", ".join(preferences.cuisines) or "Any cuisine")
+    if preferences.dishes:
+        parts.append(", ".join(preferences.dishes))
     rating = f"Rated {preferences.min_rating:.1f}+"
     parts.append(f"{rating}, or unrated" if preferences.include_unrated else rating)
     if preferences.additional:
         parts.append(f"“{preferences.additional}”")
-    summary = " · ".join(escape(part) for part in parts)
-    return f'<div style="opacity: 0.8;">Results for: {summary}</div>'
+    chips = "".join(f'<span class="blb-chip">{escape(part)}</span>' for part in parts)
+    return f'<div class="blb-search"><span class="blb-search-label">Results for:</span>{chips}</div>'
 
 
-def result_card(position: int, candidate: Candidate, chosen_area: str) -> str:
-    """Build one result card as HTML, with every value escaped so that it displays literally."""
-    restaurant = candidate.restaurant
+# The BLB dark theme. Colours match design/theme.css and .streamlit/config.toml; design/README.md
+# lists them all. Fixed CSS from this app, with no dataset or user text in it.
+FORM_STYLE = """
+<style>
+/* ---------- Page ---------- */
+[data-testid="stHeading"] h1 { font-size: 2.1rem; letter-spacing: -0.01em; }
+[data-testid="stHeading"] h1::first-letter { color: #F5A524; }
+
+/* The search form sits on a card. */
+[data-testid="stForm"] {
+  background: #161A20; border: 1px solid #262B35; border-radius: 16px; padding: 1.5rem;
+}
+/* The main button: dark text on saffron, so it stays readable. */
+button[kind="primaryFormSubmit"], button[kind="primary"] {
+  width: 100%; min-height: 3rem; border-radius: 12px; color: #1A1206 !important;
+}
+button[kind="primaryFormSubmit"] p, button[kind="primary"] p {
+  color: #1A1206 !important; font-weight: 700 !important; font-size: 1rem !important;
+}
+/* Chosen cuisines and dishes: saffron text on a dark tag, instead of white on saffron. */
+[data-baseweb="tag"] { background: #2A2213 !important; }
+[data-baseweb="tag"], [data-baseweb="tag"] span, [data-baseweb="tag"] svg { color: #FFC35C !important; }
+
+/* ---------- Results ---------- */
+.blb-search { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; margin-bottom: 0.25rem; }
+.blb-search-label { font-size: 0.85rem; color: #A3ACB9; margin-right: 0.15rem; }
+.blb-chip {
+  padding: 0.3rem 0.75rem; border-radius: 999px; background: #1D222A; border: 1px solid #2F3541;
+  font-size: 0.85rem; color: #C9D0DA; overflow-wrap: anywhere;
+}
+.blb-summary {
+  padding: 1.1rem 1.25rem; border-radius: 14px; background: #161A20; border: 1px solid #262B35;
+  color: #D5DAE1; line-height: 1.6; overflow-wrap: anywhere;
+}
+.blb-summary-label, .blb-unverified { display: flex; align-items: center; gap: 0.5rem; }
+.blb-summary-label {
+  margin-bottom: 0.4rem; font-size: 0.75rem; font-weight: 700; letter-spacing: 0.08em;
+  text-transform: uppercase; color: #FFC35C;
+}
+.blb-card {
+  background: #161A20; border: 1px solid #262B35; border-radius: 16px; padding: 1.2rem 1.35rem;
+  display: flex; flex-direction: column; gap: 0.6rem; overflow-wrap: anywhere;
+}
+.blb-title {
+  display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center;
+  gap: 0.5rem 1rem;
+}
+.blb-name {
+  display: flex; align-items: center; gap: 0.75rem; min-width: 0;
+  font-family: "Space Grotesk", sans-serif; font-size: 1.25rem; font-weight: 600; color: #ECEEF1;
+}
+.blb-rank {
+  flex: none; width: 2rem; height: 2rem; border-radius: 8px; background: #232831; color: #FFC35C;
+  display: inline-flex; align-items: center; justify-content: center; font-size: 1rem; font-weight: 700;
+}
+.blb-rating {
+  padding: 0.25rem 0.65rem; border-radius: 8px; background: #12301F; color: #6EE7A8;
+  font-size: 0.9rem; font-weight: 700; white-space: nowrap;
+}
+.blb-rating.blb-unrated { background: #1D222A; color: #C9D0DA; }
+.blb-meta { font-size: 0.9rem; color: #A3ACB9; }
+/* Cuisines are what diners scan for, so they stand out from the other details. */
+.blb-cuisines { font-size: 1rem; font-weight: 700; color: #ECEEF1; }
+.blb-badges { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.blb-badge {
+  padding: 0.2rem 0.65rem; border-radius: 6px; background: #1D222A; font-size: 0.85rem; color: #C9D0DA;
+}
+.blb-badge.blb-near { background: #13202E; color: #A9CFF5; }
+.blb-dishes { font-size: 0.95rem; font-weight: 700; color: #FFC35C; }
+.blb-why {
+  padding-top: 0.65rem; border-top: 1px solid #232831; color: #D5DAE1; font-size: 0.92rem;
+  line-height: 1.6;
+}
+.blb-why b { color: #ECEEF1; }
+.blb-unverified { font-size: 0.85rem; color: #F5C56B; }
+
+/* ---------- Hover and selection ---------- */
+/* Options in an open dropdown, larger and bold, and larger still under the cursor. */
+[role="listbox"] [role="option"],
+[role="listbox"] [role="option"] * { font-size: 1.05rem !important; font-weight: 600 !important; }
+[role="listbox"] [role="option"]:hover,
+[role="listbox"] [role="option"]:hover * {
+  font-size: 1.2rem !important; font-weight: 800 !important;
+}
+
+/* What the diner has chosen: the area, cuisines, budget and checkbox. */
+[data-testid="stSelectbox"] input,
+[data-testid="stMultiSelectTagsContainer"] [role="group"] span,
+[data-testid="stRadioOption"]:has(input:checked) p,
+[data-testid="stCheckbox"] label:has(input:checked) p {
+  font-size: 1.1rem !important; font-weight: 700 !important;
+}
+
+/* Anything under the cursor grows and turns bold. Scaling avoids pushing nearby items around. */
+[data-testid="stRadioOption"] p,
+[data-testid="stCheckbox"] label p,
+[data-testid="stSelectbox"] input,
+[data-testid="stMultiSelectTagsContainer"] [role="group"],
+button p,
+.blb-line { transition: transform 0.12s ease; transform-origin: left center; }
+[data-testid="stRadioOption"]:hover p,
+[data-testid="stCheckbox"] label:hover p,
+[data-testid="stSelectbox"]:hover input,
+[data-testid="stMultiSelectTagsContainer"] [role="group"]:hover,
+button:hover p,
+.blb-line:hover { transform: scale(1.08); font-weight: 700 !important; }
+.blb-card { transition: border-color 0.12s ease; }
+.blb-card:hover { border-color: #F5A524 !important; }
+</style>
+"""
+
+
+def summary_block(summary: str) -> str:
+    """Show the LLM's comparison of its top choices, escaped so that it displays literally."""
+    return (
+        '<div class="blb-summary">'
+        f'<div class="blb-summary-label">{_SPARKLE_ICON}AI summary</div>'
+        f'<div class="blb-line">{escape(summary)}</div>'
+        "</div>"
+    )
+
+
+def matched_dishes(restaurant: Restaurant, chosen: Sequence[str]) -> list[str]:
+    """Return the restaurant's liked dishes or labels that match the chosen dishes."""
+    patterns = [dish_pattern(d) for d in chosen]
+    labels = [*restaurant.dishes, *restaurant.cuisines]
+    found = [label for label in labels if any(p.search(label.casefold()) for p in patterns)]
+    return list(dict.fromkeys(found))
+
+
+def result_card(
+    position: int, item: RankedResult, chosen_area: str, chosen_dishes: Sequence[str] = ()
+) -> str:
+    """Build one result card as HTML, with every value escaped so that it displays literally.
+
+    Facts come from the dataset record. Only the explanation and unconfirmed preferences come
+    from the LLM.
+    """
+    restaurant = item.candidate.restaurant
     place = restaurant.location or NOT_LISTED
     details = [format_cost(restaurant), *restaurant.rest_types[:2]]
-    nearby = ""
-    if not candidate.in_chosen_area:
-        nearby = f'<div style="{_NEARBY_STYLE}">Near {escape(chosen_area)}</div>'
+    badges = "".join(f'<span class="blb-badge">{escape(d)}</span>' for d in details)
+    if not item.candidate.in_chosen_area:
+        badges += f'<span class="blb-badge blb-near">Near {escape(chosen_area)}</span>'
+    rating_class = "blb-rating" if restaurant.rating is not None else "blb-rating blb-unrated"
+    dishes = ""
+    found = matched_dishes(restaurant, chosen_dishes) if chosen_dishes else []
+    if found:
+        listed = ", ".join(escape(d) for d in found[:4])
+        dishes = f'<div class="blb-dishes">Liked for: {listed}</div>'
+    explanation = ""
+    if item.explanation:
+        explanation = (
+            f'<div class="blb-why"><b>Why this fits:</b> {escape(item.explanation)}</div>'
+        )
+    unverified = ""
+    if item.unverified_preferences:
+        listed = ", ".join(escape(p) for p in item.unverified_preferences)
+        unverified = (
+            f'<div class="blb-unverified">{_WARNING_ICON}Could not confirm: {listed}</div>'
+        )
     return (
-        f'<div style="{_CARD_STYLE}">'
-        f'<div style="{_TITLE_STYLE}">'
-        f"<span>{position}. {escape(restaurant.name)}</span>"
-        f'<span style="{_RATING_STYLE}">{escape(format_rating(restaurant))}</span>'
+        '<div class="blb-card">'
+        '<div class="blb-line blb-title">'
+        f'<span class="blb-name"><span class="blb-rank">{position}</span>'
+        f"{escape(restaurant.name)}</span>"
+        f'<span class="{rating_class}">{escape(format_rating(restaurant))}</span>'
         "</div>"
-        f'<div style="{_DETAIL_STYLE}">'
-        f"{escape(format_cuisines(restaurant))} · {escape(place)}"
+        '<div class="blb-line blb-meta">'
+        f'<span class="blb-cuisines">{escape(format_cuisines(restaurant))}</span>'
+        f" · {escape(place)}"
         "</div>"
-        f'<div style="{_DETAIL_STYLE}">{" · ".join(escape(d) for d in details)}</div>'
-        f"{nearby}"
+        f'<div class="blb-line blb-badges">{badges}</div>'
+        f"{dishes}{explanation}{unverified}"
         "</div>"
     )

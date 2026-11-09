@@ -2,11 +2,21 @@
 
 from __future__ import annotations
 
+import logging
+
 import streamlit as st
 
 from recommender.config import ConfigError, Settings, load_settings
-from recommender.display import budget_option_label, result_card, search_summary
+from recommender.cuisines import menu_order
+from recommender.display import (
+    FORM_STYLE,
+    budget_option_label,
+    result_card,
+    search_summary,
+    summary_block,
+)
 from recommender.models import BudgetBand, Preferences
+from recommender.rankers import make_ranker
 from recommender.repository import INGEST_COMMAND, DataUnavailableError, RestaurantRepository
 from recommender.service import RecommendationService
 
@@ -15,6 +25,14 @@ BUDGET_OPTIONS = ("any", "low", "medium", "high")
 NO_RESULTS_MESSAGE = (
     "No restaurants match this search, even after loosening the rating and budget. "
     "Try a different area, budget or cuisine."
+)
+MISSING_KEY_MESSAGE = (
+    "AI ranking is off because no API key is set. Results are ranked by score. "
+    "To turn it on, add {key_name} to a .env file and restart the app."
+)
+EMPTY_RESULTS_MESSAGE = (
+    "**Your restaurant picks will appear here.** Choose an area and what you feel like eating, "
+    "then press **Find restaurants**."
 )
 DATA_NOTE = (
     "Data comes from a fixed Zomato snapshot for Bangalore, so some places may have closed or "
@@ -25,6 +43,31 @@ DATA_NOTE = (
 @st.cache_resource(show_spinner="Loading restaurants...")
 def load_repository(settings: Settings) -> RestaurantRepository:
     return RestaurantRepository.load(settings.restaurants_path, settings.metadata_path)
+
+
+@st.cache_resource
+def load_service(settings: Settings, _repository: RestaurantRepository) -> RecommendationService:
+    """Create one service for every session, so that they all share its result cache.
+
+    The leading underscore stops Streamlit hashing the repository, which comes from its own
+    cache for the same settings.
+    """
+    return RecommendationService(
+        _repository,
+        make_ranker(settings),
+        max_candidates=settings.max_candidates,
+        max_results=settings.max_results,
+    )
+
+
+@st.cache_resource
+def configure_logging() -> None:
+    """Print one line per search to the terminal running the app."""
+    handler = logging.StreamHandler()
+    handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s %(message)s"))
+    logger = logging.getLogger("recommender")
+    logger.addHandler(handler)
+    logger.setLevel(logging.INFO)
 
 
 def show_setup_message(error: DataUnavailableError) -> None:
@@ -42,6 +85,7 @@ def show_search_form(repository: RestaurantRepository) -> Preferences | None:
     metadata = repository.metadata
     bands: dict[str, BudgetBand] = metadata.budget_bands
     with st.form("search"):
+        st.subheader("Find a place to eat")
         area = st.selectbox("Area in Bangalore", metadata.areas)
         budget = st.radio(
             "Budget",
@@ -51,7 +95,19 @@ def show_search_form(repository: RestaurantRepository) -> Preferences | None:
         )
         # Without select_all=False, typing "Thai" and pressing Enter also selects every other match.
         cuisines = st.multiselect(
-            "Cuisine", metadata.cuisines, placeholder="Any cuisine", select_all=False
+            "Cuisine",
+            menu_order(metadata.cuisines, metadata.popular_cuisines),
+            placeholder="Any cuisine",
+            select_all=False,
+            help="The most popular cuisines in Bangalore come first, then the rest from A to Z.",
+        )
+        dishes = st.multiselect(
+            "Dish",
+            menu_order(metadata.dishes, metadata.popular_dishes),
+            placeholder="Any dish",
+            select_all=False,
+            help="For a great dish, whatever else the restaurant serves. The most popular "
+            "dishes come first, then the rest from A to Z.",
         )
         min_rating = st.slider("Minimum rating", 0.0, 5.0, 3.5, step=0.1, format="%.1f")
         include_unrated = st.checkbox("Include new and unrated restaurants")
@@ -60,13 +116,16 @@ def show_search_form(repository: RestaurantRepository) -> Preferences | None:
             placeholder="For example, family-friendly, quick service",
             max_chars=300,
         )
-        submitted = st.form_submit_button("Find restaurants", type="primary")
+        submitted = st.form_submit_button(
+            "Find restaurants", type="primary", icon=":material/search:", width="stretch"
+        )
     if not submitted:
         return None
     return Preferences(
         area=area,
         budget=budget,
         cuisines=tuple(cuisines),
+        dishes=tuple(dishes),
         min_rating=min_rating,
         include_unrated=include_unrated,
         additional=additional,
@@ -84,14 +143,18 @@ def show_results(preferences: Preferences, repository: RestaurantRepository, res
         return
     if result.notice:
         st.warning(result.notice)
-    for position, candidate in enumerate(result.results, start=1):
-        st.html(result_card(position, candidate, preferences.area))
+    if result.summary:
+        st.html(summary_block(result.summary))
+    for position, item in enumerate(result.results, start=1):
+        st.html(result_card(position, item, preferences.area, preferences.dishes))
     st.caption(DATA_NOTE)
 
 
 def main() -> None:
-    st.set_page_config(page_title=APP_NAME, page_icon="🍽️")
+    st.set_page_config(page_title=APP_NAME, page_icon="🍽️", layout="wide")
     st.title(APP_NAME)
+    # Fixed CSS from this app, with no dataset or user text in it.
+    st.html(FORM_STYLE)
     st.caption("Tell us what you're looking for, and we'll suggest where to eat.")
 
     try:
@@ -106,15 +169,26 @@ def main() -> None:
         show_setup_message(error)
         return
 
-    service = RecommendationService(
-        repository, max_candidates=settings.max_candidates, max_results=settings.max_results
-    )
-    preferences = show_search_form(repository)
-    if preferences is not None:
-        st.session_state["last_search"] = (preferences, service.recommend(preferences))
-    if "last_search" in st.session_state:
-        last_preferences, result = st.session_state["last_search"]
-        show_results(last_preferences, repository, result)
+    configure_logging()
+    service = load_service(settings, repository)
+    ranker = service.llm_client
+    if ranker is None:
+        st.info(MISSING_KEY_MESSAGE.format(key_name=settings.api_key_name))
+    # The form on the left and results on the right. On a phone the columns stack.
+    form_column, results_column = st.columns([5, 7], gap="large")
+    with form_column:
+        preferences = show_search_form(repository)
+    with results_column:
+        if preferences is not None:
+            message = "Ranking restaurants with AI..." if ranker else "Finding restaurants..."
+            with st.spinner(message):
+                st.session_state["last_search"] = (preferences, service.recommend(preferences))
+        if "last_search" in st.session_state:
+            last_preferences, result = st.session_state["last_search"]
+            st.subheader("Top picks for you")
+            show_results(last_preferences, repository, result)
+        else:
+            st.markdown(EMPTY_RESULTS_MESSAGE)
 
 
 main()

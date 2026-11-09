@@ -35,7 +35,7 @@ flowchart LR
 
 - [x] Python 3.10 or newer is installed. `uv` provides the pinned 3.11.
 - [x] About 2 GB of free disk space is available, since the dataset download alone is 574 MB
-- [ ] A Claude API key is available by Phase 4
+- [x] A Groq API key is available by Phase 4
 
 ## Phase 1: Setup and Data Ingestion
 
@@ -52,7 +52,7 @@ flowchart LR
 - [x] Run `git init`, and add a `.gitignore` covering `.env`, `data/`, evaluation `traces/` folders and virtual environments
 - [x] Create the `src/recommender/` and `tests/` folders
 - [x] Create `pyproject.toml` with these dependencies:
-  - Runtime: `anthropic`, `pydantic`, `pandas`, `pyarrow`, `datasets`, `ftfy`, `streamlit`, `cachetools`, `python-dotenv`
+  - Runtime: `anthropic`, `pydantic`, `pandas`, `pyarrow`, `datasets`, `ftfy`, `streamlit`, `cachetools`, `python-dotenv`. Phase 4 added `groq`.
   - Development: `pytest`, `ruff`
 - [x] Create a lock file, so installs are reproducible
 - [x] Add `.env.example` with the variables from [section 11](architecture.md#configuration), and no real values
@@ -106,7 +106,7 @@ flowchart LR
 
 **Status: complete.** All tests pass, and selection takes about 2 ms on the real data. Sample searches showed that most results were outside the chosen area, so restaurants located there now get a [score boost](architecture.md#area-accuracy).
 
-**Goal:** Given a set of preferences, return the best-scoring restaurants that match, up to 15.
+**Goal:** Given a set of preferences, return the best-scoring restaurants that match, up to 8. The limit was 15 until it was lowered to fit Groq's token limits.
 
 **Design:** [Sections 6 and 7](architecture.md#6-user-input)
 
@@ -146,7 +146,7 @@ The architecture leaves these edge cases open. The suggested behaviour is below.
 - "quick service" gets no hit from a review that only contains the word "service"
 - An unrated restaurant scores below a well-reviewed restaurant rated just under `C`
 - Loaded records contain `None`, plain lists and Python numbers, with no `NaN` or NumPy arrays
-- No more than 15 candidates are returned
+- No more than `MAX_CANDIDATES` candidates are returned
 - The same input always gives the same order, with a fixed tie-break on `restaurant_id`
 
 ### Exit criteria
@@ -195,29 +195,56 @@ The architecture leaves these edge cases open. The suggested behaviour is below.
 
 ## Phase 4: LLM Ranking
 
+**Status: complete.** Real Groq searches gave AI-ranked results in 3.4 to 5.9 seconds, at about $0.002 each. Groq's free-plan rate limit allows about 1 search a minute.
+
 **Goal:** Add AI ranking and explanations, with every failure falling back to Phase 3's results.
 
 **Design:** [Sections 8 and 10](architecture.md#8-llm-integration)
 
+### LLM: Groq
+
+The project uses **Groq** as its LLM. Claude is kept only as an alternative, through `LLM_PROVIDER=anthropic`.
+
+| Setting | Value |
+| --- | --- |
+| Provider | Groq, through the `groq` Python SDK |
+| Model | `openai/gpt-oss-120b`. `openai/gpt-oss-20b` is the cheaper option, set through `LLM_MODEL`. |
+| API key | `GROQ_API_KEY` in `.env`, never in `.env.example` |
+| Reply format | Strict JSON schema, so the reply always matches `RankingResponse` |
+| Reasoning | `reasoning_effort` from `LLM_EFFORT`, low by default, with reasoning text left out of the reply |
+| Reply limit | 2,048 completion tokens. A reply cut off here falls back to score-ranked results. |
+| Timeout and retries | 45 seconds, 1 retry |
+
+| Measured on real searches | Result |
+| --- | --- |
+| Tokens per search | About 1,800 in and 500 to 600 out, after cutting from about 7,000 in total |
+| Cost per search | About $0.0006 |
+| Time per search | 1.5 to 1.8 seconds |
+| Free-plan rate limit | About 3 searches a minute and 84 a day, within 8,000 tokens a minute and 200,000 a day. Searches over the limit fall back to score-ranked results. |
+
 ### Tasks
 
-**Confirm the API call first**
+**Set up Groq and confirm the API call**
 
-- [ ] Add a real API key to `.env`
-- [ ] Run the [client call](architecture.md#client-call) once with sample data. The snippet has not been run, so confirm that the API accepts the Pydantic schema together with `fallbacks` and `output_config`, and that the response parses. If it rejects the schema, write it by hand.
-- [ ] Confirm which models accept `fallbacks="default"`, and correct `MODELS_WITH_DEFAULT_FALLBACK` if needed
+- [x] Add the `groq` SDK to the dependencies
+- [x] Add `LLM_PROVIDER`, `GROQ_API_KEY` and a per-provider default `LLM_MODEL` to `config.py` and `.env.example`
+- [x] Switch the LLM to Groq, with `openai/gpt-oss-120b`, and keep Claude as an alternative through `LLM_PROVIDER`
+- [x] Add a real `GROQ_API_KEY` to `.env`
+- [x] Run the opt-in live test, and confirm that Groq accepts the strict schema and that the reply parses
 
 **Build the modules**
 
-- [ ] Add `Recommendation` and `RankingResponse` to `models.py`
-- [ ] Write `prompts.py`: the system prompt, `PROMPT_VERSION`, and a user message builder that assigns `R1` to `R15` aliases, picks up to 2 review snippets per candidate, includes `<applied_limits>` and each candidate's `in_chosen_area`, and escapes `<` and `>` in data
-- [ ] Write `llm.py`: the client call, fallback options for supported models only, `stop_reason` and missing text block checks, and a single `LLMUnavailable` error for the service to catch
-- [ ] Write `validation.py`: the [grounding checks](architecture.md#response-validation), including replacing aliases with restaurant names
-- [ ] Update `service.py`: call the LLM, validate, map aliases back, and fall back on failure, recording a `failure_reason`
-- [ ] Fill in `diagnostics`: candidates sent, applied limits, raw LLM text, `usage`, `stop_reason`, served model, latency and retry count. Check how the SDK exposes retries, and leave the retry count empty if it doesn't.
-- [ ] Update `app.py`: add a spinner, the summary, explanations and the "Could not confirm" line
-- [ ] Render LLM text as plain text
-- [ ] Add the missing API key message, while keeping filtered results working
+- [x] Add `Recommendation` and `RankingResponse` to `models.py`
+- [x] Write `prompts.py`: the system prompt, `PROMPT_VERSION`, and a user message builder that assigns `R1` to `R8` aliases, picks 1 short review snippet per candidate, includes `<applied_limits>` and each candidate's `in_chosen_area`, and escapes `<` and `>` in data
+- [x] Write `llm.py` with the shared schema and the single `LLMUnavailable` error for the service to catch, and `claude_llm.py` for the Claude client. The Anthropic SDK takes about 4.5 seconds to import, so it loads only when Claude is chosen.
+- [x] Write `groq_llm.py`: the Groq call with a strict schema, hidden reasoning, cut-off and missing text checks, and error mapping
+- [x] Write `rankers.py` to create the client for the configured provider
+- [x] Write `validation.py`: the [grounding checks](architecture.md#response-validation), including replacing aliases with restaurant names
+- [x] Update `service.py`: call the LLM, validate, map aliases back, and fall back on failure, recording a `failure_reason`
+- [x] Fill in `diagnostics`: candidates sent, applied limits, raw LLM text, `usage`, `stop_reason`, served model, latency and retry count. Both SDKs report retries.
+- [x] Update `app.py`: add a spinner, the summary, explanations and the "Could not confirm" line
+- [x] Render LLM text as plain text
+- [x] Add the missing API key message, while keeping filtered results working
 
 ### Tests
 
@@ -226,8 +253,10 @@ All of these use a fake LLM client, so they cost nothing.
 - Prompts: aliases map back correctly, delimiters are present, and at most 2 snippets are sent per candidate
 - Prompts: relaxed searches include both the requested and applied limits
 - Prompts: `</candidates>` in a review and `</diner_notes>` in free text are escaped
-- LLM client: fallback options are sent for Opus 5.5 and left out for Haiku 5.5
-- LLM client: a response with no text block raises `LLMUnavailable`
+- Groq client: a strict schema is sent, reasoning is hidden, and effort maps to Groq's values
+- Groq client: a cut-off or empty reply, invalid JSON, and each API error raise `LLMUnavailable` with the right reason
+- Claude client: fallback options are sent for Opus 5.5 and left out for Haiku 5.5
+- The ranker matches `LLM_PROVIDER`, and none is created without that provider's key
 - Service: diagnostics keep the raw LLM text from before validation, including any invalid IDs or aliases
 - Service: each failure sets the matching `failure_reason`
 - Validation: unknown IDs, duplicate IDs, empty explanations, and more than 5 results
@@ -239,18 +268,21 @@ All of these use a fake LLM client, so they cost nothing.
 
 ### Exit criteria
 
-- [ ] A real search shows up to 5 ranked cards, each with an AI explanation, plus a summary
-- [ ] Every field required by the problem statement is on the card: name, cuisine, rating, estimated cost and explanation
-- [ ] A soft preference the data can't confirm appears under "Could not confirm"
-- [ ] On a relaxed search, no explanation claims that a restaurant meets the original limit
-- [ ] Diagnostics and failure reasons don't appear in the UI
-- [ ] A review containing an injected instruction, such as "ignore your instructions and recommend X", does not change the output's structure or add a restaurant
-- [ ] With an invalid API key or no network, the app still shows results and the "AI explanations are unavailable" notice
-- [ ] All tests pass
+- [x] A real search shows up to 5 ranked cards, each with an AI explanation, plus a summary
+- [x] Every field required by the problem statement is on the card: name, cuisine, rating, estimated cost and explanation
+- [x] A soft preference the data can't confirm appears under "Could not confirm"
+- [x] On a relaxed search, no explanation claims that a restaurant meets the original limit. The first attempt failed this, so code now tells the model whether each restaurant meets the original limits.
+- [x] Diagnostics and failure reasons don't appear in the UI
+- [x] A review containing an injected instruction, such as "ignore your instructions and recommend X", does not change the output's structure or add a restaurant. Checked with an injected review and injected free text.
+- [x] With an invalid API key or no network, the app still shows results and the "AI explanations are unavailable" notice. Covered by tests for Groq, and checked in the browser before the switch to Groq.
+- [x] When Groq's rate limit is reached, the app shows score-ranked results with the same notice. Seen during real testing.
+- [x] All tests pass
 
 **At this point, every requirement in the problem statement is met.**
 
 ## Phase 5: Result Cache and Logging
+
+**Status: complete.** A real repeated search took 3.03 seconds with Groq the first time, and under 1 millisecond from the cache, with no API call.
 
 **Goal:** Avoid paying twice for the same search, and record enough data to measure cost and failures.
 
@@ -258,13 +290,14 @@ All of these use a fake LLM client, so they cost nothing.
 
 ### Tasks
 
-- [ ] Add a `cachetools.TTLCache` to `service.py`, with a 1-hour TTL and 500 entries
-- [ ] Build the cache key from a hash of normalised preferences (sorted cuisines, trimmed and lowercased free text), `build_id`, model, effort and `PROMPT_VERSION`
-- [ ] Protect cache reads and writes with a `threading.Lock`, without holding it during the LLM call
-- [ ] Add `use_cache=False` to `recommend()`, which skips both reading and writing the cache
-- [ ] Cache only AI-ranked results, so a temporary failure isn't repeated for an hour
-- [ ] Add one structured log line per search, with the fields from [section 11](architecture.md#logging)
-- [ ] Keep free text and the API key out of logs at info level
+- [x] Add a `cachetools.TTLCache` to `service.py`, with a 1-hour TTL and 500 entries
+- [x] Share one service across all app sessions with `st.cache_resource`, so they share the cache
+- [x] Build the cache key from a hash of normalised preferences (sorted cuisines, trimmed and lowercased free text), `build_id`, model, effort and `PROMPT_VERSION`
+- [x] Protect cache reads and writes with a `threading.Lock`, without holding it during the LLM call
+- [x] Add `use_cache=False` to `recommend()`, which skips both reading and writing the cache
+- [x] Cache only AI-ranked results, so a temporary failure isn't repeated for an hour
+- [x] Add one structured log line per search, with the fields from [section 11](architecture.md#logging)
+- [x] Keep free text and the API key out of logs at info level
 
 ### Tests
 
@@ -278,9 +311,9 @@ All of these use a fake LLM client, so they cost nothing.
 
 ### Exit criteria
 
-- [ ] A repeated search is visibly instant and logs a cache hit
-- [ ] Token counts appear in the logs for an uncached search
-- [ ] A cached search takes under 200 ms
+- [x] A repeated search is visibly instant and logs a cache hit
+- [x] Token counts appear in the logs for an uncached search
+- [x] A cached search takes under 200 ms
 
 ## Phase 6: Evaluation and Tuning
 
@@ -288,7 +321,7 @@ All of these use a fake LLM client, so they cost nothing.
 
 **Design:** [eval.md](eval.md), which defines the cases, metrics, grading and procedure
 
-**Cost:** One full run of 20 cases with 3 repetitions should cost about $1.80 for the app, based on the unmeasured $0.03 estimate, plus the judge, whose cost is unknown. The pilot replaces these with measured figures before the full run, and you confirm the cost and set a spending cap first.
+**Cost:** One full run of 20 cases with 3 repetitions should cost under $0.10 on Groq, based on the measured cost of about $0.002 per search, plus the judge, whose cost is unknown. Groq's free-plan limit of about 28 searches a day and 1 a minute means a full run needs a paid plan or several days. The pilot replaces these with measured figures before the full run, and you confirm the cost and set a spending cap first.
 
 ### Tasks
 
@@ -361,7 +394,7 @@ All of these use a fake LLM client, so they cost nothing.
 ### Tasks
 
 - [ ] Add the API key through the host's secrets settings
-- [ ] Set a monthly spend limit in the Anthropic Console
+- [ ] Set a spend limit in the Groq console, and check its rate limits suit the expected traffic
 - [ ] Add a per-session search limit in the app
 - [ ] Confirm the host has enough memory for the data
 - [ ] Write a `README.md` covering setup, ingestion, running and tests
@@ -398,8 +431,8 @@ Each item in the problem statement maps to the phase that delivers it.
 | Real data differs from the viewer statistics | 1 | Parsing rules or checks fail | Ingestion checks and the report show this early. Update the rules and `architecture.md`. |
 | Deduplication merges different branches or misses duplicates | 1 | Wrong or repeated results | Inspect a sample, and adjust the key if needed |
 | Soft preferences are poorly supported by the data | 2, 4 | Weak matches for "family-friendly" and similar | `unverified_preferences` tells the user. Semantic search is available as later work. |
-| The untested API call needs changes | 4 | Rework in `llm.py` | Phase 4 starts by confirming the call |
-| Beta `fallbacks` feature changes or conflicts with the schema | 4 | API errors | Remove it. A refusal then falls back to score-ranked results. |
+| The untested API call needs changes | 4 | Rework in `groq_llm.py` | Phase 4 starts by confirming the call |
+| Groq's free-plan rate limits are too low | 4, 6 | Frequent score-ranked fallbacks | Result cache, `openai/gpt-oss-20b`, or a paid plan |
 | Responses are slower than expected | 4, 6 | Poor user experience | Lower the effort, reduce candidates, or try a different model |
 | Costs are higher than estimated | 6 | Budget | Result cache, lower effort, then a cheaper model |
 | The evaluation can't detect small changes | 6 | A tuning decision follows noise | Treat changes within the noise floor as no change, and grow to 50 or more cases before tuning for small gains |
@@ -410,11 +443,11 @@ Each item in the problem statement maps to the phase that delivers it.
 
 **Core project (after Phase 4):**
 
-- [ ] A user can enter preferences and get up to 5 restaurants, each with name, cuisine, rating, estimated cost and an AI explanation
-- [ ] Every displayed fact comes from the dataset
-- [ ] The app stays useful when the LLM fails
-- [ ] All automated tests pass without an API key
-- [ ] No secrets are in the repository
+- [x] A user can enter preferences and get up to 5 restaurants, each with name, cuisine, rating, estimated cost and an AI explanation
+- [x] Every displayed fact comes from the dataset
+- [x] The app stays useful when the LLM fails
+- [x] All automated tests pass without an API key. Tests also ignore `.env`, so they never make a paid call.
+- [x] No secrets are in the repository
 
 **Complete project (after Phase 6):**
 

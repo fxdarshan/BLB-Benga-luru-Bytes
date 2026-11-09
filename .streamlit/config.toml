@@ -5,3 +5,15 @@ gatherUsageStats = false
 [client]
 # Hide developer options, such as the Deploy button, from diners.
 toolbarMode = "minimal"
+
+[theme]
+# The BLB dark theme. design/README.md lists every colour and where it is used.
+base = "dark"
+primaryColor = "#F5A524"
+backgroundColor = "#0E1013"
+secondaryBackgroundColor = "#1D222A"
+textColor = "#ECEEF1"
+borderColor = "#2F3541"
+baseRadius = "10px"
+font = "Inter:https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+headingFont = "'Space Grotesk':https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&display=swap"

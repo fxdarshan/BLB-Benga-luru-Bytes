@@ -10,6 +10,9 @@ from dotenv import load_dotenv
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 VALID_EFFORTS = ("low", "medium", "high", "xhigh", "max")
+# The model used when LLM_MODEL isn't set, for each supported provider.
+DEFAULT_MODELS = {"groq": "openai/gpt-oss-120b", "anthropic": "claude-opus-5-5"}
+API_KEY_NAMES = {"groq": "GROQ_API_KEY", "anthropic": "ANTHROPIC_API_KEY"}
 
 
 class ConfigError(ValueError):
@@ -18,13 +21,18 @@ class ConfigError(ValueError):
 
 @dataclass(frozen=True)
 class Settings:
-    anthropic_api_key: str | None
+    llm_provider: str
+    llm_api_key: str | None
     llm_model: str
     llm_effort: str
     llm_timeout_seconds: float
     max_candidates: int
     max_results: int
     data_dir: Path
+
+    @property
+    def api_key_name(self) -> str:
+        return API_KEY_NAMES[self.llm_provider]
 
     @property
     def restaurants_path(self) -> Path:
@@ -52,11 +60,15 @@ def load_settings(env: dict[str, str] | None = None) -> Settings:
         load_dotenv(PROJECT_ROOT / ".env")
         env = dict(os.environ)
 
-    effort = env.get("LLM_EFFORT", "medium").strip()
+    provider = env.get("LLM_PROVIDER", "groq").strip().lower()
+    if provider not in DEFAULT_MODELS:
+        raise ConfigError(f"LLM_PROVIDER must be one of {tuple(DEFAULT_MODELS)}, got {provider!r}")
+
+    effort = env.get("LLM_EFFORT", "low").strip()
     if effort not in VALID_EFFORTS:
         raise ConfigError(f"LLM_EFFORT must be one of {VALID_EFFORTS}, got {effort!r}")
 
-    max_candidates = _positive_number(env, "MAX_CANDIDATES", "15", int)
+    max_candidates = _positive_number(env, "MAX_CANDIDATES", "8", int)
     max_results = _positive_number(env, "MAX_RESULTS", "5", int)
     if max_results > max_candidates:
         raise ConfigError("MAX_RESULTS must not be greater than MAX_CANDIDATES")
@@ -65,8 +77,9 @@ def load_settings(env: dict[str, str] | None = None) -> Settings:
     data_dir = PROJECT_ROOT / Path(env.get("DATA_DIR", "./data").strip())
 
     return Settings(
-        anthropic_api_key=env.get("ANTHROPIC_API_KEY", "").strip() or None,
-        llm_model=env.get("LLM_MODEL", "claude-opus-5-5").strip(),
+        llm_provider=provider,
+        llm_api_key=env.get(API_KEY_NAMES[provider], "").strip() or None,
+        llm_model=env.get("LLM_MODEL", "").strip() or DEFAULT_MODELS[provider],
         llm_effort=effort,
         llm_timeout_seconds=_positive_number(env, "LLM_TIMEOUT_SECONDS", "45", float),
         max_candidates=max_candidates,

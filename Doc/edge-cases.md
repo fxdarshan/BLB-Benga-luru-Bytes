@@ -274,11 +274,11 @@ The LLM handles these, so they belong in the [evaluation set](#phase-6-evaluatio
 | CAC-03 | A failed LLM call | Not cached | Covered |
 | CAC-04 | Data is rebuilt, or the model, effort or prompt changes, within the 1-hour TTL | Include the `build_id`, model, effort and `PROMPT_VERSION` in the key | Covered |
 | CAC-05 | Streamlit's threads use `TTLCache` at the same time, which isn't thread-safe | Protect reads and writes with a lock, without holding it during the LLM call | Covered |
-| CAC-06 | Two users start the same uncached search together | Both may call the LLM. Accept this, since blocking adds complexity for rare savings. | New |
-| CAC-07 | The result had relaxations | The cached entry includes them, so the notice still shows | New |
+| CAC-06 | Two users start the same uncached search together | Both may call the LLM. Accept this, since blocking adds complexity for rare savings. | Covered |
+| CAC-07 | The result had relaxations | The cached entry includes them, so the notice still shows | Covered |
 | CAC-08 | The cache is full, or the app restarts | Some entries are evicted, or the cache empties. Those searches then call the LLM again. | Covered |
-| CAC-09 | A search with no results | Nothing to cache, since it made no API call | New |
-| CAC-10 | Two free-text values differ only in punctuation | Different entries, since punctuation can change meaning | New |
+| CAC-09 | A search with no results | Nothing to cache, since it made no API call | Covered |
+| CAC-10 | Two free-text values differ only in punctuation | Different entries, since punctuation can change meaning | Covered |
 
 ### Logging
 
@@ -286,9 +286,9 @@ The LLM handles these, so they belong in the [evaluation set](#phase-6-evaluatio
 | --- | --- | --- | --- |
 | LOG-01 | Free text or API key could reach logs | Excluded at info level | Covered |
 | LOG-02 | Exception messages may include prompt text or request details | Log the error type and status code, not the full message, at info level | New |
-| LOG-03 | A cache hit, fallback or empty search has no token counts | Log the fields as null, without raising an error | New |
-| LOG-04 | Writing the log line fails | Search still completes | New |
-| LOG-05 | A failed request has no response `_request_id` | Log it when available, and don't assume it exists | New |
+| LOG-03 | A cache hit, fallback or empty search has no token counts | Log the fields as null, without raising an error | Covered |
+| LOG-04 | Writing the log line fails | Search still completes | Covered |
+| LOG-05 | A failed request has no response `_request_id` | Log it when available, and don't assume it exists | Covered |
 
 ## Configuration and Credentials
 

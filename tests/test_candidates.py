@@ -5,6 +5,7 @@ import pytest
 
 from conftest import make_metadata, make_repository, make_restaurant
 from recommender.candidates import (
+    DEFAULT_MAX_CANDIDATES,
     InvalidPreferencesError,
     count_keyword_hits,
     extract_keyword_patterns,
@@ -232,7 +233,7 @@ def test_requested_budget_survives_the_candidate_cut():
     )
     selection = search(repository, budget="high", min_rating=3.5)
     assert ids(selection)[0] == "asked_for"
-    assert len(selection.candidates) == 15
+    assert len(selection.candidates) == DEFAULT_MAX_CANDIDATES
 
 
 def test_any_budget_never_relaxes():
@@ -487,14 +488,14 @@ def test_a_different_koramangala_block_is_not_local():
 def test_no_more_than_fifteen_candidates_returned_with_the_best_first():
     restaurants = [make_restaurant(f"r{i:02}", rating=3.0 + i / 20, votes=1000) for i in range(30)]
     selection = search(make_repository(*restaurants))
-    assert len(selection.candidates) == 15
+    assert len(selection.candidates) == DEFAULT_MAX_CANDIDATES
     assert selection.total_matches == 30
-    assert ids(selection) == [f"r{i:02}" for i in range(29, 14, -1)]
+    assert ids(selection) == [f"r{i:02}" for i in range(29, 29 - DEFAULT_MAX_CANDIDATES, -1)]
 
 
 def test_order_is_repeatable_with_a_tie_break_on_restaurant_id():
     restaurants = [make_restaurant(f"r{i:02}") for i in range(20)]
-    expected = [f"r{i:02}" for i in range(15)]
+    expected = [f"r{i:02}" for i in range(DEFAULT_MAX_CANDIDATES)]
     for seed in range(5):
         random.Random(seed).shuffle(restaurants)
         assert ids(search(make_repository(*restaurants))) == expected

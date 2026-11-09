@@ -1,3 +1,5 @@
+import os
+
 import pytest
 
 from recommender.models import BudgetBand, DatasetMetadata, Restaurant
@@ -46,6 +48,16 @@ def make_metadata(**overrides):
 
 def make_repository(*restaurants, **metadata_overrides):
     return RestaurantRepository(restaurants, make_metadata(**metadata_overrides))
+
+
+@pytest.fixture(autouse=True)
+def no_real_api_keys(monkeypatch):
+    """Keep tests from reading .env, so a normal run never calls a paid API."""
+    if os.environ.get("RUN_LIVE_TESTS") == "1":
+        return
+    monkeypatch.setattr("recommender.config.load_dotenv", lambda *args, **kwargs: False)
+    for name in ("GROQ_API_KEY", "ANTHROPIC_API_KEY", "LLM_PROVIDER", "LLM_MODEL"):
+        monkeypatch.delenv(name, raising=False)
 
 
 @pytest.fixture

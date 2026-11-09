@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>BLB search and results</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Space+Grotesk:wght@500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0E1013}
+a{color:#F5A524}a:hover{color:#FFC35C}
+input[type=range]{accent-color:#F5A524}
+input[type=checkbox]{accent-color:#F5A524}
+select,input,button{font-family:inherit}
+</style>
+</helmet>
+<div style="min-height: 100vh; background: #0E1013; color: #ECEEF1; font-family: Inter, system-ui, sans-serif; font-size: 15px; line-height: 1.5">
+
+<header style="border-bottom: 1px solid #232831; background: #12151A">
+<div style="max-width: 1280px; margin: 0 auto; padding: 18px 32px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 24px">
+<div style="display: flex; align-items: center; gap: 14px">
+<div style="width: 40px; height: 40px; border-radius: 10px; background: {{accent}}; color: #1A1206; display: flex; align-items: center; justify-content: center; font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 15px">BLB</div>
+<div style="display: flex; flex-direction: column">
+<span style="font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 20px; letter-spacing: -0.01em">Banga-Luru Bytes</span>
+<span style="font-size: 13px; color: #A3ACB9">Tell us what you're looking for, and we'll suggest where to eat.</span>
+</div>
+</div>
+<div style="display: flex; align-items: center; gap: 8px; padding: 6px 12px; border: 1px solid #2A303A; border-radius: 999px; font-size: 13px; color: #C9D0DA">
+<span style="width: 8px; height: 8px; border-radius: 50%; background: #4ADE80"></span>
+AI ranking on
+</div>
+</div>
+</header>
+
+<main style="max-width: 1280px; margin: 0 auto; padding: 32px; display: flex; flex-wrap: wrap; align-items: flex-start; gap: 32px">
+
+<form style="flex: 1 1 340px; max-width: 420px; background: #161A20; border: 1px solid #262B35; border-radius: 16px; padding: 24px; display: flex; flex-direction: column; gap: 22px; box-sizing: border-box">
+<h2 style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-size: 20px; font-weight: 600">Find a place to eat</h2>
+
+<div style="display: flex; flex-direction: column; gap: 8px">
+<label for="area" style="font-size: 13px; font-weight: 600; color: #C9D0DA">Area in Bangalore</label>
+<select id="area" style="height: 46px; padding: 0 14px; border-radius: 10px; border: 1px solid #2F3541; background: #1D222A; color: #ECEEF1; font-size: 15px; font-weight: 600">
+<option>Koramangala 5th Block</option>
+<option>Indiranagar</option>
+<option>HSR</option>
+<option>BTM</option>
+</select>
+</div>
+
+<fieldset style="margin: 0; padding: 0; border: 0; display: flex; flex-direction: column; gap: 8px">
+<legend style="font-size: 13px; font-weight: 600; color: #C9D0DA; padding: 0; margin-bottom: 8px">Budget for two</legend>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px">
+<sc-for list="{{budgets}}" as="b" hint-placeholder-count="4">
+<button type="button" onClick="{{b.pick}}" style="{{b.style}}">
+<span style="display: block; font-weight: 600; font-size: 14px">{{b.name}}</span>
+<span style="display: block; font-size: 12px; opacity: 0.85">{{b.range}}</span>
+</button>
+</sc-for>
+</div>
+</fieldset>
+
+<div style="display: flex; flex-direction: column; gap: 8px">
+<label for="cuisine" style="font-size: 13px; font-weight: 600; color: #C9D0DA">Cuisine</label>
+<div style="min-height: 46px; padding: 6px; border-radius: 10px; border: 1px solid #2F3541; background: #1D222A; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; box-sizing: border-box">
+<span style="display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 8px; background: #2A2213; color: #FFC35C; font-size: 13px; font-weight: 600">North Indian
+<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"></path></svg></span>
+<span style="display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 8px; background: #2A2213; color: #FFC35C; font-size: 13px; font-weight: 600">Chinese
+<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"></path></svg></span>
+<input id="cuisine" placeholder="Add cuisine" style="flex: 1 1 100px; min-width: 80px; height: 30px; border: 0; background: transparent; color: #ECEEF1; font-size: 14px; outline: none">
+</div>
+<span style="font-size: 12px; color: #8C95A3">Most popular in Bangalore first, then A to Z.</span>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 8px">
+<label for="dish" style="font-size: 13px; font-weight: 600; color: #C9D0DA">Dish</label>
+<div style="min-height: 46px; padding: 6px; border-radius: 10px; border: 1px solid #2F3541; background: #1D222A; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; box-sizing: border-box">
+<span style="display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 8px; background: #2A2213; color: #FFC35C; font-size: 13px; font-weight: 600">Biryani
+<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"></path></svg></span>
+<input id="dish" placeholder="Any dish" style="flex: 1 1 100px; min-width: 80px; height: 30px; border: 0; background: transparent; color: #ECEEF1; font-size: 14px; outline: none">
+</div>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 8px">
+<div style="display: flex; justify-content: space-between; align-items: baseline">
+<label for="rating" style="font-size: 13px; font-weight: 600; color: #C9D0DA">Minimum rating</label>
+<span style="font-size: 15px; font-weight: 700; color: #FFC35C">★ 3.5</span>
+</div>
+<input id="rating" type="range" min="0" max="5" step="0.1" value="3.5" style="width: 100%">
+<label style="display: flex; align-items: center; gap: 10px; font-size: 14px; color: #C9D0DA; min-height: 44px">
+<input type="checkbox" style="width: 18px; height: 18px">
+Include new and unrated restaurants
+</label>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 8px">
+<label for="extra" style="font-size: 13px; font-weight: 600; color: #C9D0DA">Anything else? <span style="font-weight: 400; color: #8C95A3">(optional)</span></label>
+<input id="extra" placeholder="For example, family-friendly, quick service" style="height: 46px; padding: 0 14px; border-radius: 10px; border: 1px solid #2F3541; background: #1D222A; color: #ECEEF1; font-size: 14px">
+</div>
+
+<button type="button" style="height: 50px; border: 0; border-radius: 12px; background: {{accent}}; color: #1A1206; font-size: 16px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg>
+Find restaurants
+</button>
+</form>
+
+<section style="flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column; gap: 16px">
+<div style="display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px">
+<h2 style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-size: 26px; font-weight: 600; letter-spacing: -0.01em">Top picks for you</h2>
+<span style="font-size: 13px; color: #A3ACB9">3 results</span>
+</div>
+
+<div style="display: flex; flex-wrap: wrap; gap: 8px">
+<span style="padding: 6px 12px; border-radius: 999px; background: #1D222A; border: 1px solid #2A303A; font-size: 13px; color: #C9D0DA">Koramangala 5th Block</span>
+<span style="padding: 6px 12px; border-radius: 999px; background: #1D222A; border: 1px solid #2A303A; font-size: 13px; color: #C9D0DA">Medium · ₹500–₹1,500</span>
+<span style="padding: 6px 12px; border-radius: 999px; background: #1D222A; border: 1px solid #2A303A; font-size: 13px; color: #C9D0DA">North Indian, Chinese</span>
+<span style="padding: 6px 12px; border-radius: 999px; background: #1D222A; border: 1px solid #2A303A; font-size: 13px; color: #C9D0DA">Biryani</span>
+<span style="padding: 6px 12px; border-radius: 999px; background: #1D222A; border: 1px solid #2A303A; font-size: 13px; color: #C9D0DA">Rated 3.5+</span>
+</div>
+
+<div style="display: flex; gap: 12px; align-items: flex-start; padding: 12px 16px; border-radius: 12px; background: #13202E; border: 1px solid #1F3A57; color: #A9CFF5; font-size: 14px">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true" style="flex: none; margin-top: 2px"><circle cx="12" cy="12" r="9"></circle><path d="M12 11v5M12 8h.01"></path></svg>
+<span>Few places matched in this area, so we also included restaurants nearby.</span>
+</div>
+
+<div style="padding: 18px 20px; border-radius: 14px; background: #161A20; border: 1px solid #262B35">
+<div style="display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #FFC35C; margin-bottom: 8px">
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"></path></svg>
+AI summary
+</div>
+<p style="margin: 0; color: #D5DAE1; line-height: 1.6">[AI comparison of the top choices appears here — a short paragraph on how the picks differ in price, rating and what each is best for.]</p>
+</div>
+
+<sc-for list="{{results}}" as="r" hint-placeholder-count="3">
+<article style="background: #161A20; border: 1px solid #262B35; border-radius: 16px; padding: 20px 22px; display: flex; flex-direction: column; gap: 10px">
+<div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-start; gap: 8px 16px">
+<div style="display: flex; align-items: center; gap: 12px; min-width: 0">
+<span style="flex: none; width: 32px; height: 32px; border-radius: 8px; background: #232831; color: #FFC35C; display: flex; align-items: center; justify-content: center; font-family: 'Space Grotesk', sans-serif; font-weight: 700">{{r.pos}}</span>
+<h3 style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-size: 20px; font-weight: 600; overflow-wrap: anywhere">{{r.name}}</h3>
+</div>
+<span style="display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 8px; background: #12301F; color: #6EE7A8; font-weight: 700; font-size: 14px; white-space: nowrap">★ {{r.rating}} <span style="font-weight: 500; color: #9FD9BC">({{r.votes}})</span></span>
+</div>
+<div style="display: flex; flex-wrap: wrap; gap: 4px 10px; font-size: 14px; color: #A3ACB9">
+<span style="font-weight: 700; color: #ECEEF1; font-size: 15px">{{r.cuisines}}</span>
+<span>·</span><span>{{r.place}}</span>
+</div>
+<div style="display: flex; flex-wrap: wrap; gap: 8px">
+<span style="padding: 4px 10px; border-radius: 6px; background: #1D222A; font-size: 13px; color: #C9D0DA">{{r.cost}}</span>
+<span style="padding: 4px 10px; border-radius: 6px; background: #1D222A; font-size: 13px; color: #C9D0DA">{{r.type}}</span>
+<sc-if value="{{r.nearby}}" hint-placeholder-val="{{ false }}">
+<span style="padding: 4px 10px; border-radius: 6px; background: #13202E; font-size: 13px; color: #A9CFF5">Near Koramangala 5th Block</span>
+</sc-if>
+</div>
+<div style="font-size: 14px; font-weight: 700; color: #FFC35C">Liked for: {{r.liked}}</div>
+<p style="margin: 0; padding-top: 10px; border-top: 1px solid #232831; color: #D5DAE1; font-size: 14px; line-height: 1.6"><b style="color: #ECEEF1">Why this fits:</b> {{r.why}}</p>
+<sc-if value="{{r.hasUnverified}}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; align-items: center; gap: 8px; font-size: 13px; color: #F5C56B">
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3 2 20h20L12 3z"></path><path d="M12 10v4M12 17h.01"></path></svg>
+Could not confirm: {{r.unverified}}
+</div>
+</sc-if>
+</article>
+</sc-for>
+
+<p style="margin: 8px 0 0; font-size: 13px; color: #8C95A3">Data comes from a fixed Zomato snapshot for Bangalore, so some places may have closed or changed. Check before you go.</p>
+</section>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#F5A524","options":["#F5A524","#FF6B5B","#5EC2FF","#7EE0A1"]},"$preview":{"width":1440,"height":1480}}'>
+class Component extends DCLogic {
+  constructor(props) { super(props); this.state = { budget: 'medium' }; }
+  renderVals() {
+    const accent = this.props.accent ?? '#F5A524';
+    const opts = [
+      { id: 'any', name: 'Any budget', range: 'No limit' },
+      { id: 'low', name: 'Low', range: 'Under ₹500' },
+      { id: 'medium', name: 'Medium', range: '₹500–₹1,500' },
+      { id: 'high', name: 'High', range: 'Over ₹1,500' }
+    ];
+    const base = 'min-height: 56px; padding: 8px 12px; border-radius: 10px; text-align: left; cursor: pointer; ';
+    const budgets = opts.map((o) => ({
+      ...o,
+      pick: () => this.setState({ budget: o.id }),
+      style: base + (this.state.budget === o.id
+        ? 'border: 1px solid ' + accent + '; background: #2A2213; color: #FFD58A;'
+        : 'border: 1px solid #2F3541; background: #1D222A; color: #C9D0DA;')
+    }));
+    const results = [
+      { pos: 1, name: '[Restaurant name]', rating: '4.4', votes: '[votes]', cuisines: 'North Indian, Mughlai', place: 'Koramangala 5th Block', cost: '₹[cost] for two', type: 'Casual Dining', liked: 'Biryani, Kebabs', why: '[LLM explanation of why this restaurant matches the search.]', nearby: false, hasUnverified: false, unverified: '' },
+      { pos: 2, name: '[Restaurant name]', rating: '4.2', votes: '[votes]', cuisines: 'Chinese, North Indian', place: 'Koramangala 6th Block', cost: '₹[cost] for two', type: 'Casual Dining', liked: 'Biryani', why: '[LLM explanation of why this restaurant matches the search.]', nearby: true, hasUnverified: false, unverified: '' },
+      { pos: 3, name: '[Restaurant name]', rating: '4.0', votes: '[votes]', cuisines: 'North Indian', place: 'Koramangala 5th Block', cost: '₹[cost] for two', type: 'Quick Bites', liked: 'Biryani', why: '[LLM explanation of why this restaurant matches the search.]', nearby: false, hasUnverified: true, unverified: 'family-friendly' }
+    ];
+    return { accent, budgets, results };
+  }
+}
+</script>
+</body>
+</html>

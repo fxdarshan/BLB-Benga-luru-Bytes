@@ -20,6 +20,8 @@ import pyarrow.parquet as pq
 
 from recommender import cleaning
 from recommender.config import load_settings
+from recommender.cuisines import offered_cuisines
+from recommender.dishes import offered_dishes
 from recommender.models import BudgetBand
 
 DATASET = "ManikaSaini/zomato-restaurant-recommendation"
@@ -225,14 +227,16 @@ def band_sizes(costs: pd.Series) -> dict[str, int]:
 
 def build_metadata(restaurants: pd.DataFrame) -> dict[str, Any]:
     rated = restaurants["rating"].dropna()
+    cuisines, popular = offered_cuisines(restaurants["cuisines"])
+    dishes, popular_dishes = offered_dishes(restaurants["dishes"])
     return {
         "dataset": DATASET,
         "dataset_revision": DATASET_REVISION,
         "areas": sorted({area for areas in restaurants["areas"] for area in areas}),
-        "cuisines": sorted(
-            {cuisine for cuisines in restaurants["cuisines"] for cuisine in cuisines},
-            key=str.casefold,
-        ),
+        "cuisines": cuisines,
+        "popular_cuisines": popular,
+        "dishes": dishes,
+        "popular_dishes": popular_dishes,
         "budget_bands": BUDGET_BANDS,
         "budget_band_sizes": band_sizes(restaurants["cost_for_two"]),
         "mean_rating": round(float(rated.mean()), 4) if len(rated) else None,
@@ -370,7 +374,10 @@ def format_report(result: IngestResult, restaurants_path: Path, metadata_path: P
             row("Duplicates removed", stats["duplicates_removed"]),
             row("Restaurants", stats["restaurants"]),
             row("Areas", len(meta["areas"])),
-            row("Cuisines", len(meta["cuisines"])),
+            row("Cuisines offered", len(meta["cuisines"])),
+            row("Most popular", ", ".join(meta["popular_cuisines"])),
+            row("Dishes offered", len(meta["dishes"])),
+            row("Most popular dishes", ", ".join(meta["popular_dishes"])),
             "",
             "Missing values, per restaurant",
             missing("Rating", "rating"),

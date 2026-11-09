@@ -9,6 +9,7 @@ dependencies = [
     "cachetools",
     "datasets",
     "ftfy",
+    "groq",
     "pandas",
     "pyarrow",
     "pydantic",

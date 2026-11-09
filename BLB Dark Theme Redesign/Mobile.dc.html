@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>BLB phone results</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Space+Grotesk:wght@500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0E1013}
+a{color:#F5A524}a:hover{color:#FFC35C}
+button{font-family:inherit}
+</style>
+</helmet>
+<div style="width: 390px; height: 1240px; box-sizing: border-box; background: #0E1013; color: #ECEEF1; font-family: Inter, system-ui, sans-serif; font-size: 15px; line-height: 1.5; display: flex; flex-direction: column">
+
+<header style="padding: 16px 16px 14px; border-bottom: 1px solid #232831; background: #12151A; display: flex; align-items: center; justify-content: space-between; gap: 12px">
+<div style="display: flex; align-items: center; gap: 10px">
+<div style="width: 36px; height: 36px; border-radius: 9px; background: {{accent}}; color: #1A1206; display: flex; align-items: center; justify-content: center; font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 13px">BLB</div>
+<span style="font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 18px">Banga-Luru Bytes</span>
+</div>
+<span style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: #C9D0DA"><span style="width: 8px; height: 8px; border-radius: 50%; background: #4ADE80"></span>AI on</span>
+</header>
+
+<div style="padding: 16px; display: flex; flex-direction: column; gap: 14px">
+<button type="button" style="min-height: 52px; padding: 10px 14px; border-radius: 12px; border: 1px solid #2F3541; background: #161A20; color: #ECEEF1; display: flex; align-items: center; justify-content: space-between; gap: 10px; text-align: left; cursor: pointer">
+<span style="display: flex; flex-direction: column; min-width: 0">
+<span style="font-weight: 600; font-size: 14px">Koramangala 5th Block</span>
+<span style="font-size: 12px; color: #A3ACB9">Medium · North Indian, Chinese · Biryani · 3.5+</span>
+</span>
+<span style="flex: none; display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; color: #FFC35C">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h16M7 12h10M10 18h4"></path></svg>
+Edit
+</span>
+</button>
+
+<div style="display: flex; align-items: baseline; justify-content: space-between">
+<h2 style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-size: 22px; font-weight: 600">Top picks for you</h2>
+<span style="font-size: 12px; color: #A3ACB9">3 results</span>
+</div>
+
+<div style="padding: 14px 16px; border-radius: 14px; background: #161A20; border: 1px solid #262B35">
+<div style="display: flex; align-items: center; gap: 8px; font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #FFC35C; margin-bottom: 6px">
+<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"></path></svg>
+AI summary
+</div>
+<p style="margin: 0; font-size: 14px; color: #D5DAE1">[AI comparison of the top choices appears here.]</p>
+</div>
+
+<sc-for list="{{results}}" as="r" hint-placeholder-count="3">
+<article style="background: #161A20; border: 1px solid #262B35; border-radius: 16px; padding: 16px; display: flex; flex-direction: column; gap: 8px">
+<div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 10px">
+<div style="display: flex; align-items: center; gap: 10px; min-width: 0">
+<span style="flex: none; width: 28px; height: 28px; border-radius: 7px; background: #232831; color: #FFC35C; display: flex; align-items: center; justify-content: center; font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 14px">{{r.pos}}</span>
+<h3 style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-size: 17px; font-weight: 600">{{r.name}}</h3>
+</div>
+<span style="flex: none; padding: 3px 8px; border-radius: 7px; background: #12301F; color: #6EE7A8; font-weight: 700; font-size: 13px">★ {{r.rating}}</span>
+</div>
+<div style="font-size: 13px; color: #A3ACB9"><span style="font-weight: 700; color: #ECEEF1; font-size: 14px">{{r.cuisines}}</span> · {{r.place}}</div>
+<div style="display: flex; flex-wrap: wrap; gap: 6px">
+<span style="padding: 3px 8px; border-radius: 6px; background: #1D222A; font-size: 12px; color: #C9D0DA">{{r.cost}}</span>
+<span style="padding: 3px 8px; border-radius: 6px; background: #1D222A; font-size: 12px; color: #C9D0DA">{{r.type}}</span>
+</div>
+<div style="font-size: 13px; font-weight: 700; color: #FFC35C">Liked for: {{r.liked}}</div>
+<p style="margin: 0; padding-top: 8px; border-top: 1px solid #232831; font-size: 13px; color: #D5DAE1"><b style="color: #ECEEF1">Why this fits:</b> {{r.why}}</p>
+</article>
+</sc-for>
+
+<p style="margin: 0; font-size: 12px; color: #8C95A3">Data comes from a fixed Zomato snapshot for Bangalore, so some places may have closed or changed. Check before you go.</p>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#F5A524","options":["#F5A524","#FF6B5B","#5EC2FF","#7EE0A1"]},"$preview":{"width":390,"height":1240}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const results = [
+      { pos: 1, name: '[Restaurant name]', rating: '4.4', cuisines: 'North Indian, Mughlai', place: 'Koramangala 5th Block', cost: '₹[cost] for two', type: 'Casual Dining', liked: 'Biryani, Kebabs', why: '[LLM explanation of the match.]' },
+      { pos: 2, name: '[Restaurant name]', rating: '4.2', cuisines: 'Chinese, North Indian', place: 'Koramangala 6th Block', cost: '₹[cost] for two', type: 'Casual Dining', liked: 'Biryani', why: '[LLM explanation of the match.]' },
+      { pos: 3, name: '[Restaurant name]', rating: '4.0', cuisines: 'North Indian', place: 'Koramangala 5th Block', cost: '₹[cost] for two', type: 'Quick Bites', liked: 'Biryani', why: '[LLM explanation of the match.]' }
+    ];
+    return { accent: this.props.accent ?? '#F5A524', results };
+  }
+}
+</script>
+</body>
+</html>

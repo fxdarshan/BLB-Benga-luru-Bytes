@@ -19,6 +19,7 @@ class Preferences(BaseModel):
     area: str = Field(min_length=1)
     budget: Budget = "any"
     cuisines: tuple[str, ...] = ()
+    dishes: tuple[str, ...] = ()
     min_rating: float = Field(default=3.5, ge=0.0, le=5.0)
     include_unrated: bool = False
     additional: str = Field(default="", max_length=MAX_ADDITIONAL_CHARS)
@@ -29,9 +30,9 @@ class Preferences(BaseModel):
         # Sliders can produce values such as 3.3000000000000003.
         return round(value, 1)
 
-    @field_validator("cuisines")
+    @field_validator("cuisines", "dishes")
     @classmethod
-    def _clean_cuisines(cls, value: tuple[str, ...]) -> tuple[str, ...]:
+    def _clean_labels(cls, value: tuple[str, ...]) -> tuple[str, ...]:
         unique: dict[str, str] = {}
         for cuisine in value:
             label = cuisine.strip()
@@ -65,6 +66,7 @@ class Restaurant:
     cuisine_keys: frozenset[str] = field(init=False, repr=False, compare=False)
     search_text: str = field(init=False, repr=False, compare=False)
     location_text: str = field(init=False, repr=False, compare=False)
+    dish_text: str = field(init=False, repr=False, compare=False)
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "cuisine_keys", frozenset(c.casefold() for c in self.cuisines))
@@ -78,6 +80,8 @@ class Restaurant:
         object.__setattr__(self, "search_text", " | ".join(parts).casefold())
         place = f"{self.location or ''} | {self.address or ''}".casefold()
         object.__setattr__(self, "location_text", place)
+        # Liked dishes and cuisine labels, since labels such as Pizza or Momos also name dishes.
+        object.__setattr__(self, "dish_text", " | ".join([*self.dishes, *self.cuisines]).casefold())
 
 
 class BudgetBand(BaseModel):
@@ -108,6 +112,9 @@ class DatasetMetadata(BaseModel):
     build_id: str
     areas: tuple[str, ...]
     cuisines: tuple[str, ...]
+    popular_cuisines: tuple[str, ...] = ()
+    dishes: tuple[str, ...] = ()
+    popular_dishes: tuple[str, ...] = ()
     budget_bands: dict[str, BudgetBand]
     mean_rating: float
     median_votes: int = Field(ge=1)
@@ -144,6 +151,34 @@ class CandidateSelection:
     total_matches: int
 
 
+class Recommendation(BaseModel):
+    """One restaurant the LLM recommends. Display facts are deliberately absent."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    candidate_id: str
+    explanation: str
+    unverified_preferences: list[str]
+
+
+class RankingResponse(BaseModel):
+    """The LLM's answer. The order of `recommendations` is the ranking."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    summary: str
+    recommendations: list[Recommendation]
+
+
+@dataclass(frozen=True)
+class RankedResult:
+    """One result as shown to the diner. Facts come from `candidate`, never from the LLM."""
+
+    candidate: Candidate
+    explanation: str | None = None
+    unverified_preferences: tuple[str, ...] = ()
+
+
 @dataclass(frozen=True)
 class Diagnostics:
     """Details for evaluation and debugging, which never reach the UI."""
@@ -156,15 +191,19 @@ class Diagnostics:
     usage: dict[str, int] | None = None
     stop_reason: str | None = None
     served_model: str | None = None
+    fallback_model_used: bool = False
     latency_seconds: float | None = None
     retry_count: int | None = None
+    request_id: str | None = None
+    results_dropped: int = 0
+    cache_hit: bool = False
 
 
 @dataclass(frozen=True)
 class RecommendationResult:
     """The outcome of one search, as shown to the diner."""
 
-    results: list[Candidate]
+    results: list[RankedResult]
     relaxations: list[Relaxation]
     summary: str | None = None
     ai_ranked: bool = False

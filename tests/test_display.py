@@ -9,12 +9,12 @@ from recommender.display import (
     result_card,
     search_summary,
 )
-from recommender.models import Candidate, Preferences
+from recommender.models import Candidate, Preferences, RankedResult
 
 
 def card(in_chosen_area=True, **fields):
     candidate = Candidate(make_restaurant(**fields), 4.0, 0, in_chosen_area)
-    return result_card(1, candidate, "MG Road")
+    return result_card(1, RankedResult(candidate), "MG Road")
 
 
 @pytest.mark.parametrize(
@@ -36,7 +36,19 @@ def test_format_cost_is_labelled_for_two():
 
 
 def test_format_cuisines():
-    assert format_cuisines(make_restaurant(cuisines=["Thai", "BBQ"])) == "Thai, BBQ"
+    assert format_cuisines(make_restaurant(cuisines=["Thai", "Kerala"])) == "Thai, Kerala"
+
+
+def test_cards_show_only_real_cuisines():
+    restaurant = make_restaurant(cuisines=["Cafe", "Italian", "Pizza", "Bubble Tea", "Goan"])
+    assert format_cuisines(restaurant) == "Italian, Goan"
+
+
+def test_cards_fall_back_to_original_labels_without_a_real_cuisine():
+    assert format_cuisines(make_restaurant(cuisines=["Biryani", "Kebab"])) == "Biryani, Kebab"
+
+
+def test_format_cuisines_when_none_are_listed():
     assert format_cuisines(make_restaurant(cuisines=[])) == "Cuisine: not listed"
 
 
@@ -56,7 +68,8 @@ def test_card_shows_every_required_field():
         location="Banashankari",
         rest_types=["Casual Dining"],
     )
-    for text in ("1. Jalsa", "North Indian", "★ 4.1 (775 votes)", "₹800 for two", "Banashankari"):
+    assert '<span class="blb-rank">1</span>Jalsa' in html
+    for text in ("North Indian", "★ 4.1 (775 votes)", "₹800 for two", "Banashankari"):
         assert text in html
     assert "Casual Dining" in html
 
@@ -104,3 +117,22 @@ def test_search_summary_describes_the_search_and_escapes_free_text():
 def test_search_summary_defaults():
     summary = search_summary(Preferences(area="BTM"), BANDS)
     assert "Any budget" in summary and "Any cuisine" in summary and "Rated 3.5+" in summary
+
+
+def test_card_lines_are_tagged_for_hover_highlighting():
+    html = card(location="BTM")
+    assert html.startswith('<div class="blb-card"')
+    assert html.count('class="blb-line ') == 3
+
+
+def test_page_style_highlights_hovered_and_chosen_items():
+    from recommender.display import FORM_STYLE
+
+    for rule in (
+        ":hover",
+        "input:checked",
+        "stSelectbox",
+        "stMultiSelectTagsContainer",
+        ".blb-line:hover",
+    ):
+        assert rule in FORM_STYLE

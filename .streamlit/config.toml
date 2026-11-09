@@ -7,7 +7,7 @@ gatherUsageStats = false
 toolbarMode = "minimal"
 
 [theme]
-# The BLB dark theme. design/README.md lists every colour and where it is used.
+# The BLB dark theme. design/DESIGN.md lists every colour and where it is used.
 base = "dark"
 primaryColor = "#F5A524"
 backgroundColor = "#0E1013"

@@ -65,7 +65,7 @@ def search_summary(preferences: Preferences, bands: dict[str, BudgetBand]) -> st
     return f'<div class="blb-search"><span class="blb-search-label">Results for:</span>{chips}</div>'
 
 
-# The BLB dark theme. Colours match design/theme.css and .streamlit/config.toml; design/README.md
+# The BLB dark theme. Colours match design/code.html and .streamlit/config.toml; design/DESIGN.md
 # lists them all. Fixed CSS from this app, with no dataset or user text in it.
 FORM_STYLE = """
 <style>

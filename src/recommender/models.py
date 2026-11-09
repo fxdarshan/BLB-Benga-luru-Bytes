@@ -159,6 +159,9 @@ class Recommendation(BaseModel):
     candidate_id: str
     explanation: str
     unverified_preferences: list[str]
+    # The number of the review to show, 1 for the first sent, or 0 for none. Only the number
+    # comes from the LLM, so the text shown is always the customer's own.
+    best_review: int = 0
 
 
 class RankingResponse(BaseModel):
@@ -177,6 +180,7 @@ class RankedResult:
     candidate: Candidate
     explanation: str | None = None
     unverified_preferences: tuple[str, ...] = ()
+    review: str | None = None  # A customer review from the dataset, chosen by the LLM.
 
 
 @dataclass(frozen=True)

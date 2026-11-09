@@ -167,6 +167,7 @@ class RecommendationService:
             prompt.candidates_by_alias,
             max_results=self.max_results,
             has_free_text=bool(preferences.additional),
+            reviews_by_alias=prompt.reviews_by_alias,
         )
         details = self._with_call(base, sent, reply.details, dropped=validated.dropped)
         if not validated.results:

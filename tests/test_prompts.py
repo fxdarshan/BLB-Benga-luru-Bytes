@@ -75,11 +75,24 @@ def test_json_is_compact():
     assert '":' in prompt.user_message and '": ' not in prompt.user_message
 
 
-def test_one_short_snippet_preferring_a_keyword_match():
+def test_up_to_three_snippets_with_keyword_matches_first():
     snippets = ["Nice decor.", "Lovely biryani here.", "Great staff.", "Biryani was cold."]
     prompt, _ = built(make_restaurant(review_snippets=snippets), additional="biryani")
     sent = candidates_json(prompt.user_message)[0]["review_snippets"]
-    assert sent == ["Lovely biryani here."]
+    assert sent == ["Lovely biryani here.", "Biryani was cold.", "Nice decor."]
+    # The full reviews, in the same order, so the chosen number maps back to the right one.
+    assert prompt.reviews_by_alias == {"R1": sent}
+
+
+def test_full_reviews_are_kept_though_the_prompt_gets_shortened_ones():
+    review = "word " * 100
+    prompt, _ = built(make_restaurant(review_snippets=[review]))
+    assert prompt.reviews_by_alias["R1"] == [review]
+
+
+def test_prompt_asks_for_warm_choice_leaving_explanations_and_a_review():
+    for phrase in ("3 to 5 short sentences", "leave the choice to the diner", "best_review"):
+        assert phrase in SYSTEM_PROMPT
 
 
 def test_long_snippets_are_shortened_at_a_word():

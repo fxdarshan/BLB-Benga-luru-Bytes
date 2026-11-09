@@ -125,6 +125,27 @@ def test_card_lines_are_tagged_for_hover_highlighting():
     assert html.count('class="blb-line ') == 3
 
 
+def test_card_shows_the_chosen_customer_review_escaped():
+    candidate = Candidate(make_restaurant(), 4.0, 0, True)
+    html = result_card(1, RankedResult(candidate, "Fine.", review="Best <b>dosa</b> ever"), "BTM")
+    assert "A customer said" in html
+    assert "“Best &lt;b&gt;dosa&lt;/b&gt; ever”" in html
+
+
+def test_long_reviews_are_cut_to_about_two_lines():
+    from recommender.display import MAX_REVIEW_CHARS, review_block
+
+    block = review_block("tasty food, " * 40)
+    quoted = block.split("</span>", 1)[1]
+    assert len(quoted) <= MAX_REVIEW_CHARS + len("“…”</div>")
+    # Cut at a whole word, with no stray comma before the ellipsis.
+    assert quoted.endswith(("tasty…”</div>", "food…”</div>"))
+
+
+def test_card_without_a_review_shows_no_review_line():
+    assert "A customer said" not in card()
+
+
 def test_page_header_shows_whether_ai_ranking_is_on():
     from recommender.display import page_header
 

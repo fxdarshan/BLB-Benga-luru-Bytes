@@ -10,6 +10,8 @@ from recommender.dishes import dish_pattern
 from recommender.models import BudgetBand, Preferences, RankedResult, Restaurant
 
 NOT_LISTED = "Not listed"
+# About two lines on a card. Longer reviews are cut at a word, with an ellipsis.
+MAX_REVIEW_CHARS = 200
 
 # Small line icons, drawn in the text colour. Fixed markup with no dataset or user text in it.
 _SPARKLE_ICON = (
@@ -192,6 +194,15 @@ button[kind="primaryFormSubmit"] p, button[kind="primary"] p {
 }
 .blb-why b { color: #ECEEF1; }
 .blb-unverified { font-size: 0.85rem; color: #F5C56B; }
+/* A real customer's review, set apart so it reads as their words, not the app's. */
+.blb-review {
+  padding: 0.65rem 0.85rem; border-radius: 10px; background: #1D222A;
+  color: #C9D0DA; font-size: 0.9rem; font-style: italic; line-height: 1.55;
+}
+.blb-review-label {
+  display: block; margin-bottom: 0.2rem; font-style: normal; font-size: 0.72rem;
+  font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #8C95A3;
+}
 
 /* ---------- Hover and selection ---------- */
 /* Options in an open dropdown, larger and bold, and larger still under the cursor. */
@@ -260,6 +271,19 @@ def summary_block(summary: str) -> str:
     )
 
 
+def review_block(review: str | None) -> str:
+    """Show a customer's review, escaped and cut to about two lines."""
+    if not review:
+        return ""
+    text = review.strip()
+    if len(text) > MAX_REVIEW_CHARS:
+        text = text[:MAX_REVIEW_CHARS].rsplit(" ", 1)[0].rstrip(" ,;:.") + "…"
+    return (
+        '<div class="blb-review"><span class="blb-review-label">A customer said</span>'
+        f"“{escape(text)}”</div>"
+    )
+
+
 def matched_dishes(restaurant: Restaurant, chosen: Sequence[str]) -> list[str]:
     """Return the restaurant's liked dishes or labels that match the chosen dishes."""
     patterns = [dish_pattern(d) for d in chosen]
@@ -307,6 +331,6 @@ def result_card(
         f" · {escape(place)}"
         "</div>"
         f'<div class="blb-line blb-badges">{badges}</div>'
-        f"{dishes}{explanation}{unverified}"
+        f"{dishes}{explanation}{review_block(item.review)}{unverified}"
         "</div>"
     )

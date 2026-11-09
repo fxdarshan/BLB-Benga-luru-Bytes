@@ -12,9 +12,9 @@ from recommender.llm import RANKING_SCHEMA, CallDetails, LLMReply, LLMUnavailabl
 from recommender.models import RankingResponse
 
 MAX_RETRIES = 1
-# Reasoning counts toward this limit. 2,048 leaves room for low-effort reasoning and 5 short
-# explanations, while keeping each call well inside the 8,000 tokens a minute allowed.
-MAX_COMPLETION_TOKENS = 2048
+# Reasoning counts toward this limit. 3,072 leaves room for low-effort reasoning and 5
+# explanations of up to 90 words, while keeping each call inside the 8,000 tokens a minute allowed.
+MAX_COMPLETION_TOKENS = 3072
 SCHEMA_NAME = "restaurant_ranking"
 # Groq's GPT-OSS models accept low, medium and high, so higher settings use high.
 EFFORT_FOR_GROQ = {"low": "low", "medium": "medium", "high": "high", "xhigh": "high", "max": "high"}

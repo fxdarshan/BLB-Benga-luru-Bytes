@@ -262,6 +262,7 @@ The LLM handles these, so they belong in the [evaluation set](#phase-6-evaluatio
 | VAL-10 | A very long explanation | Shorten for display at a safe limit, since the schema doesn't limit length | New |
 | VAL-11 | `unverified_preferences` lists something the user never asked for, or has a blank item | Remove blanks. Other items are shown only when free text was entered. | New |
 | VAL-12 | Fewer valid results than candidates | Show only those, with no padding from score-ranked results | Covered |
+| VAL-14 | Showing a customer review on each card | The model returns only `best_review`, the number of a review it was sent, and the card shows that review's own text from the dataset, escaped and cut to about 200 characters. 0, or a number that wasn't sent, shows no review. The prompt says never to pick one that mainly complains. | Covered |
 | VAL-13 | The model gives a restaurant's name as `candidate_id` instead of its alias. Seen with Groq: every pick was dropped, so the diner saw no AI text. | The prompt and schema say `candidate_id` is the alias, such as `R1`. A name that exactly one candidate has, ignoring case and spacing, is matched to it. A name shared by several candidates is dropped. | Covered |
 
 ## Phase 5: Cache and Logging

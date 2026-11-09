@@ -59,13 +59,22 @@ def _shorten(text: str) -> str:
     return f"{head}…"
 
 
+def _chosen_review(number: int, reviews: list[str]) -> str | None:
+    """The review the LLM picked, by its number among those sent. Any other number shows none."""
+    if 1 <= number <= len(reviews):
+        return reviews[number - 1]
+    return None
+
+
 def validate_ranking(
     ranking: RankingResponse,
     candidates_by_alias: dict[str, Candidate],
     *,
     max_results: int,
     has_free_text: bool,
+    reviews_by_alias: dict[str, list[str]] | None = None,
 ) -> ValidatedRanking:
+    reviews_by_alias = reviews_by_alias or {}
     results: list[RankedResult] = []
     seen: set[str] = set()
     dropped = 0
@@ -86,6 +95,7 @@ def validate_ranking(
                 explanation=_shorten(replace_aliases(explanation, candidates_by_alias)),
                 # Without free text, there are no soft preferences that could be unconfirmed.
                 unverified_preferences=unverified if has_free_text else (),
+                review=_chosen_review(item.best_review, reviews_by_alias.get(alias, [])),
             )
         )
     dropped += max(0, len(results) - max_results)

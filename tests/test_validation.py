@@ -1,3 +1,5 @@
+import pytest
+
 from conftest import make_restaurant
 from recommender.models import Candidate, RankingResponse, Recommendation
 from recommender.validation import MAX_EXPLANATION_CHARS, replace_aliases, validate_ranking
@@ -20,9 +22,13 @@ def ranking(*items, summary="R1 beats R2."):
     )
 
 
-def validate(response, *, max_results=5, has_free_text=True, sent=None):
+def validate(response, *, max_results=5, has_free_text=True, sent=None, reviews=None):
     return validate_ranking(
-        response, sent or candidates(), max_results=max_results, has_free_text=has_free_text
+        response,
+        sent or candidates(),
+        max_results=max_results,
+        has_free_text=has_free_text,
+        reviews_by_alias=reviews,
     )
 
 
@@ -72,6 +78,34 @@ def test_a_name_shared_by_two_candidates_is_dropped():
     result = validate(ranking(("Place 1", "Which branch?"), ("R2", "Real.")), sent=sent)
     assert ids(result) == ["id2"]
     assert result.dropped == 1
+
+
+def best_review(number, reviews):
+    response = RankingResponse(
+        summary="",
+        recommendations=[
+            Recommendation(
+                candidate_id="R1",
+                explanation="Fine.",
+                unverified_preferences=[],
+                best_review=number,
+            )
+        ],
+    )
+    return validate(response, sent=candidates(1), reviews={"R1": reviews}).results[0].review
+
+
+def test_the_chosen_review_is_the_customers_own_text():
+    assert best_review(2, ["Okay.", "Loved the dosa!"]) == "Loved the dosa!"
+
+
+@pytest.mark.parametrize("number", [0, -1, 3, 99])
+def test_no_review_is_shown_for_zero_or_a_number_that_was_not_sent(number):
+    assert best_review(number, ["Okay.", "Loved the dosa!"]) is None
+
+
+def test_no_review_is_shown_when_none_were_sent():
+    assert best_review(1, []) is None
 
 
 def test_empty_explanations_are_dropped():

@@ -183,6 +183,15 @@ def test_ai_results_show_summary_explanations_and_unconfirmed_preferences(data_d
     assert len(blocks) == 4
 
 
+def test_ai_results_show_the_customer_review_the_ai_picked(data_dir, fake_ranker):
+    # Every test restaurant has the one review "Tasty". R1 gets it, and R2 asks for none.
+    fake_ranker(FakeRanker(ranking_json(("R1", "Close by.", [], 1), ("R2", "Quiet.", [], 0))))
+    blocks = html_blocks(submit(start()))
+    cards = [b for b in blocks if "blb-card" in b]
+    assert "A customer said" in cards[0] and "“Tasty”" in cards[0]
+    assert "A customer said" not in cards[1]
+
+
 def test_llm_failure_shows_notice_and_score_ranked_results(data_dir, fake_ranker):
     fake_ranker(FakeRanker(error=LLMUnavailable("timeout")))
     app = submit(start())

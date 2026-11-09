@@ -23,8 +23,17 @@ RANKING_SCHEMA: dict[str, Any] = {
                     },
                     "explanation": {"type": "string"},
                     "unverified_preferences": {"type": "array", "items": {"type": "string"}},
+                    "best_review": {
+                        "type": "integer",
+                        "description": "Number of the best review in review_snippets, or 0",
+                    },
                 },
-                "required": ["candidate_id", "explanation", "unverified_preferences"],
+                "required": [
+                    "candidate_id",
+                    "explanation",
+                    "unverified_preferences",
+                    "best_review",
+                ],
                 "additionalProperties": False,
             },
         },

@@ -70,8 +70,53 @@ def search_summary(preferences: Preferences, bands: dict[str, BudgetBand]) -> st
 FORM_STYLE = """
 <style>
 /* ---------- Page ---------- */
-[data-testid="stHeading"] h1 { font-size: 2.1rem; letter-spacing: -0.01em; }
-[data-testid="stHeading"] h1::first-letter { color: #F5A524; }
+[data-testid="stMainBlockContainer"] { max-width: 1280px; padding-top: 2rem; }
+
+/* Header: logo, name, tagline and the AI status pill. */
+.blb-header {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
+  gap: 0.75rem 1.5rem; padding-bottom: 1.25rem; border-bottom: 1px solid #232831;
+}
+.blb-brand { display: flex; align-items: center; gap: 0.9rem; }
+.blb-logo {
+  flex: none; width: 2.75rem; height: 2.75rem; border-radius: 10px; background: #F5A524;
+  color: #1A1206; display: flex; align-items: center; justify-content: center;
+  font-family: "Space Grotesk", sans-serif; font-weight: 700; font-size: 0.95rem;
+}
+.blb-brand-name {
+  margin: 0; font-family: "Space Grotesk", sans-serif; font-size: 1.4rem; font-weight: 700;
+  line-height: 1.25; letter-spacing: -0.01em; color: #ECEEF1;
+}
+.blb-tagline { font-size: 0.85rem; color: #A3ACB9; }
+.blb-status {
+  display: flex; align-items: center; gap: 0.5rem; padding: 0.35rem 0.8rem;
+  border: 1px solid #2F3541; border-radius: 999px; font-size: 0.85rem; color: #C9D0DA;
+}
+.blb-dot { width: 0.5rem; height: 0.5rem; border-radius: 50%; background: #4ADE80; }
+.blb-dot.blb-off { background: #8C95A3; }
+
+/* Budget: a 2 x 2 grid of boxes instead of a row of round buttons. */
+[data-testid="stForm"] [data-testid="stRadio"] [role="radiogroup"] {
+  display: grid !important; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.5rem;
+}
+[data-testid="stForm"] [role="radiogroup"] > div {
+  margin: 0 !important; min-width: 0; display: flex; align-self: stretch;
+}
+[data-testid="stForm"] [role="radiogroup"] [data-testid="stRadioOption"] {
+  width: 100%; height: 100%; min-height: 3.5rem; margin: 0; padding: 0.5rem 0.75rem;
+  box-sizing: border-box; display: flex; align-items: center; cursor: pointer;
+  border: 1px solid #2F3541; border-radius: 10px; background: #1D222A;
+}
+[data-testid="stForm"] [role="radiogroup"] [data-testid="stRadioOption"]:has(input:checked) {
+  border-color: #F5A524; background: #2A2213;
+}
+[data-testid="stForm"] [role="radiogroup"] [data-testid="stRadioOption"]:has(input:checked) p {
+  color: #FFD58A;
+}
+/* The round marker is not needed: the box shows the choice. */
+[data-testid="stForm"] [role="radiogroup"] [data-testid="stRadioOption"] > div > div:first-child {
+  display: none;
+}
 
 /* The search form sits on a card. */
 [data-testid="stForm"] {
@@ -175,6 +220,27 @@ button:hover p,
 .blb-card:hover { border-color: #F5A524 !important; }
 </style>
 """
+
+
+def page_header(ai_ranking: bool | None) -> str:
+    """The header: logo, name, tagline, and whether AI ranking is on.
+
+    None leaves out the status, for pages shown before the settings have loaded.
+    """
+    status = ""
+    if ai_ranking is not None:
+        dot = "blb-dot" if ai_ranking else "blb-dot blb-off"
+        label = "AI ranking on" if ai_ranking else "AI ranking off"
+        status = f'<div class="blb-status"><span class="{dot}"></span>{label}</div>'
+    return (
+        '<header class="blb-header">'
+        '<div class="blb-brand"><div class="blb-logo">BLB</div><div>'
+        '<h1 class="blb-brand-name">Banga-Luru Bytes</h1>'
+        '<div class="blb-tagline">'
+        "Tell us what you're looking for, and we'll suggest where to eat.</div>"
+        "</div></div>"
+        f"{status}</header>"
+    )
 
 
 def summary_block(summary: str) -> str:

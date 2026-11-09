@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>BLB (Banga-Luru Bytes) — Dark Dining Finder</title>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Space+Grotesk:wght@500;600;700&amp;display=swap" rel="stylesheet"/>
+<style>
+/* BLB dark theme. Every colour, font and size lives in the variables below,
+   so one change here restyles the whole page. DESIGN.md lists the same values. */
+:root {
+  /* Backgrounds, darkest to lightest */
+  --bg: #0E1013;          /* page */
+  --header: #12151A;      /* top bar */
+  --surface: #161A20;     /* cards and the search form */
+  --field: #1D222A;       /* inputs, tags, chips */
+  --rank: #232831;        /* rank number box, dividers */
+
+  /* Borders */
+  --border: #262B35;
+  --border-field: #2F3541;
+
+  /* Text */
+  --text: #ECEEF1;        /* headings and main text */
+  --text-body: #D5DAE1;   /* paragraphs */
+  --text-label: #C9D0DA;  /* form labels, chips */
+  --text-muted: #A3ACB9;  /* secondary details */
+  --text-faint: #8C95A3;  /* hints and footnotes */
+
+  /* Accent (saffron) */
+  --accent: #F5A524;      /* button, logo, slider */
+  --accent-text: #FFC35C; /* accent-coloured text */
+  --accent-soft: #2A2213; /* selected tags and budget */
+  --on-accent: #1A1206;   /* text on the accent button */
+
+  /* Status colours */
+  --rating-bg: #12301F;  --rating-text: #6EE7A8;  /* rating badge */
+  --info-bg: #13202E;    --info-border: #1F3A57;  --info-text: #A9CFF5; /* notices */
+  --warn-text: #F5C56B;  /* "Could not confirm" */
+  --live: #4ADE80;       /* "AI ranking on" dot */
+
+  /* Type */
+  --font-body: Inter, system-ui, sans-serif;
+  --font-heading: "Space Grotesk", Inter, sans-serif;
+
+  /* Shape */
+  --radius-card: 16px;
+  --radius-field: 10px;
+  --radius-chip: 8px;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+h1, h2, h3 { font-family: var(--font-heading); margin: 0; letter-spacing: -0.01em; }
+p { margin: 0; }
+svg { flex: none; }
+
+/* ---------- Header ---------- */
+.header { background: var(--header); border-bottom: 1px solid var(--rank); }
+.header-inner {
+  max-width: 1280px; margin: 0 auto; padding: 18px 32px;
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 24px;
+}
+.brand { display: flex; align-items: center; gap: 14px; }
+.logo {
+  width: 40px; height: 40px; border-radius: 10px;
+  background: var(--accent); color: var(--on-accent);
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-heading); font-weight: 700; font-size: 15px;
+}
+.brand-name { font-family: var(--font-heading); font-weight: 700; font-size: 20px; display: block; }
+.brand-tagline { font-size: 13px; color: var(--text-muted); display: block; }
+.status-pill {
+  display: flex; align-items: center; gap: 8px; padding: 6px 12px;
+  border: 1px solid var(--border-field); border-radius: 999px; font-size: 13px; color: var(--text-label);
+}
+.status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--live); }
+
+/* ---------- Layout ---------- */
+.layout {
+  max-width: 1280px; margin: 0 auto; padding: 32px;
+  display: flex; flex-wrap: wrap; align-items: flex-start; gap: 32px;
+}
+.results { flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column; gap: 16px; }
+
+/* ---------- Search form ---------- */
+.search-form {
+  flex: 1 1 340px; max-width: 420px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-card);
+  padding: 24px; display: flex; flex-direction: column; gap: 22px;
+}
+.search-form h2 { font-size: 20px; font-weight: 600; }
+.field { display: flex; flex-direction: column; gap: 8px; border: 0; margin: 0; padding: 0; }
+.field-label { font-size: 13px; font-weight: 600; color: var(--text-label); padding: 0; }
+.field-label .optional { font-weight: 400; color: var(--text-faint); }
+.field-hint { font-size: 12px; color: var(--text-faint); }
+.input, .select {
+  height: 46px; padding: 0 14px; border-radius: var(--radius-field);
+  border: 1px solid var(--border-field); background: var(--field); color: var(--text);
+  font: inherit; font-size: 15px;
+}
+.select { font-weight: 600; }
+.input::placeholder { color: var(--text-faint); }
+.input:focus, .select:focus, .tag-box:focus-within { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+.budget-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.budget-option {
+  min-height: 56px; padding: 8px 12px; border-radius: var(--radius-field); text-align: left; cursor: pointer;
+  border: 1px solid var(--border-field); background: var(--field); color: var(--text-label); font: inherit;
+}
+.budget-option[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); color: #FFD58A; }
+.budget-name { display: block; font-weight: 600; font-size: 14px; }
+.budget-range { display: block; font-size: 12px; opacity: 0.85; }
+
+.tag-box {
+  min-height: 46px; padding: 6px; border-radius: var(--radius-field);
+  border: 1px solid var(--border-field); background: var(--field);
+  display: flex; flex-wrap: wrap; align-items: center; gap: 6px;
+}
+.tag {
+  display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: var(--radius-chip);
+  background: var(--accent-soft); color: var(--accent-text); font-size: 13px; font-weight: 600;
+}
+.tag-input {
+  flex: 1 1 100px; min-width: 80px; height: 30px; border: 0; background: transparent;
+  color: var(--text); font: inherit; font-size: 14px; outline: none;
+}
+.tag-input::placeholder { color: var(--text-faint); }
+
+.rating-row { display: flex; justify-content: space-between; align-items: baseline; }
+.rating-value { font-size: 15px; font-weight: 700; color: var(--accent-text); }
+input[type="range"], input[type="checkbox"] { accent-color: var(--accent); }
+input[type="range"] { width: 100%; }
+.checkbox { display: flex; align-items: center; gap: 10px; font-size: 14px; color: var(--text-label); min-height: 44px; }
+.checkbox input { width: 18px; height: 18px; }
+
+.btn-primary {
+  height: 50px; border: 0; border-radius: 12px; background: var(--accent); color: var(--on-accent);
+  font: inherit; font-size: 16px; font-weight: 700; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+}
+.btn-primary:hover { filter: brightness(1.08); }
+
+/* ---------- Results ---------- */
+.results-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px; }
+.results-head h2 { font-size: 26px; font-weight: 600; }
+.count { font-size: 13px; color: var(--text-muted); }
+
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip {
+  padding: 6px 12px; border-radius: 999px; background: var(--field);
+  border: 1px solid var(--border-field); font-size: 13px; color: var(--text-label);
+}
+
+.notice {
+  display: flex; gap: 12px; align-items: flex-start; padding: 12px 16px; border-radius: 12px;
+  background: var(--info-bg); border: 1px solid var(--info-border); color: var(--info-text); font-size: 14px;
+}
+.notice svg { margin-top: 2px; }
+
+.summary { padding: 18px 20px; border-radius: 14px; background: var(--surface); border: 1px solid var(--border); }
+.summary-label {
+  display: flex; align-items: center; gap: 8px; margin-bottom: 8px;
+  font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent-text);
+}
+.summary p { color: var(--text-body); line-height: 1.6; }
+
+.card {
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-card);
+  padding: 20px 22px; display: flex; flex-direction: column; gap: 10px;
+  transition: border-color 0.12s ease;
+}
+.card:hover { border-color: var(--accent); }
+.card-top { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-start; gap: 8px 16px; }
+.card-title { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.card-title h3 { font-size: 20px; font-weight: 600; overflow-wrap: anywhere; }
+.rank {
+  width: 32px; height: 32px; border-radius: var(--radius-chip); background: var(--rank); color: var(--accent-text);
+  display: flex; align-items: center; justify-content: center; font-family: var(--font-heading); font-weight: 700; flex: none;
+}
+.rating {
+  display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: var(--radius-chip);
+  background: var(--rating-bg); color: var(--rating-text); font-weight: 700; font-size: 14px; white-space: nowrap;
+}
+.rating .votes { font-weight: 500; color: #9FD9BC; }
+.card-meta { display: flex; flex-wrap: wrap; gap: 4px 10px; font-size: 14px; color: var(--text-muted); }
+.cuisines { font-weight: 700; color: var(--text); font-size: 15px; }
+.badges { display: flex; flex-wrap: wrap; gap: 8px; }
+.badge { padding: 4px 10px; border-radius: 6px; background: var(--field); font-size: 13px; color: var(--text-label); }
+.badge-near { background: var(--info-bg); color: var(--info-text); }
+.liked { font-size: 14px; font-weight: 700; color: var(--accent-text); }
+.why { padding-top: 10px; border-top: 1px solid var(--rank); color: var(--text-body); font-size: 14px; line-height: 1.6; }
+.why b { color: var(--text); }
+.unverified { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--warn-text); }
+.footnote { margin-top: 8px; font-size: 13px; color: var(--text-faint); }
+
+/* ---------- Phone ---------- */
+@media (max-width: 600px) {
+  .header-inner { padding: 14px 16px; }
+  .brand-tagline { display: none; }
+  .layout { padding: 16px; gap: 16px; }
+  .search-form { max-width: none; }
+  .results-head h2 { font-size: 22px; }
+  .card { padding: 16px; }
+  .card-title h3 { font-size: 17px; }
+}
+</style>
+</head>
+<body>
+
+<!-- HEADER: app name, tagline and AI status (app.py: APP_NAME, the caption, MISSING_KEY_MESSAGE) -->
+<header class="header">
+  <div class="header-inner">
+    <div class="brand">
+      <div class="logo">BLB</div>
+      <div>
+        <span class="brand-name">Banga-Luru Bytes</span>
+        <span class="brand-tagline">Tell us what you're looking for, and we'll suggest where to eat.</span>
+      </div>
+    </div>
+    <div class="status-pill"><span class="status-dot"></span>AI ranking on</div>
+  </div>
+</header>
+
+<main class="layout">
+
+  <!-- SEARCH FORM (app.py: show_search_form) -->
+  <form class="search-form" onsubmit="return false">
+    <h2>Find a place to eat</h2>
+
+    <div class="field">
+      <label class="field-label" for="area">Area in Bangalore</label>
+      <select id="area" class="select">
+        <option>Koramangala 5th Block</option>
+        <option>Indiranagar</option>
+        <option>HSR</option>
+        <option>BTM</option>
+      </select>
+    </div>
+
+    <!-- Budget bands match ingest.py: low under 500, medium 500–1,500, high over 1,500 -->
+    <fieldset class="field">
+      <legend class="field-label">Budget for two</legend>
+      <div class="budget-grid">
+        <button type="button" class="budget-option" aria-pressed="false"><span class="budget-name">Any budget</span><span class="budget-range">No limit</span></button>
+        <button type="button" class="budget-option" aria-pressed="false"><span class="budget-name">Low</span><span class="budget-range">Under ₹500</span></button>
+        <button type="button" class="budget-option" aria-pressed="true"><span class="budget-name">Medium</span><span class="budget-range">₹500–₹1,500</span></button>
+        <button type="button" class="budget-option" aria-pressed="false"><span class="budget-name">High</span><span class="budget-range">Over ₹1,500</span></button>
+      </div>
+    </fieldset>
+
+    <div class="field">
+      <label class="field-label" for="cuisine">Cuisine</label>
+      <div class="tag-box">
+        <span class="tag">North Indian <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></span>
+        <span class="tag">Chinese <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></span>
+        <input id="cuisine" class="tag-input" placeholder="Add cuisine">
+      </div>
+      <span class="field-hint">Most popular in Bangalore first, then A to Z.</span>
+    </div>
+
+    <div class="field">
+      <label class="field-label" for="dish">Dish</label>
+      <div class="tag-box">
+        <span class="tag">Biryani <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></span>
+        <input id="dish" class="tag-input" placeholder="Any dish">
+      </div>
+    </div>
+
+    <div class="field">
+      <div class="rating-row">
+        <label class="field-label" for="rating">Minimum rating</label>
+        <span class="rating-value" id="rating-value">★ 3.5</span>
+      </div>
+      <input id="rating" type="range" min="0" max="5" step="0.1" value="3.5">
+      <label class="checkbox"><input type="checkbox"> Include new and unrated restaurants</label>
+    </div>
+
+    <div class="field">
+      <label class="field-label" for="extra">Anything else? <span class="optional">(optional)</span></label>
+      <input id="extra" class="input" maxlength="300" placeholder="For example, family-friendly, quick service">
+    </div>
+
+    <button type="submit" class="btn-primary">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+      Find restaurants
+    </button>
+  </form>
+
+  <!-- RESULTS (app.py: show_results; display.py: search_summary, summary_block, result_card) -->
+  <section class="results">
+    <div class="results-head">
+      <h2>Top picks for you</h2>
+      <span class="count">3 results</span>
+    </div>
+
+    <!-- What was searched (display.py: search_summary) -->
+    <div class="chips">
+      <span class="chip">Koramangala 5th Block</span>
+      <span class="chip">Medium · ₹500–₹1,500</span>
+      <span class="chip">North Indian, Chinese</span>
+      <span class="chip">Biryani</span>
+      <span class="chip">Rated 3.5+</span>
+    </div>
+
+    <!-- Relaxation notice (result.relaxations) -->
+    <div class="notice">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg>
+      <span>Few places matched in this area, so we also included restaurants nearby.</span>
+    </div>
+
+    <!-- AI summary (display.py: summary_block) -->
+    <div class="summary">
+      <div class="summary-label">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/></svg>
+        AI summary
+      </div>
+      <p>[AI comparison of the top choices appears here — a short paragraph on how the picks differ in price, rating and what each is best for.]</p>
+    </div>
+
+    <!-- Result card (display.py: result_card). Values in [brackets] are placeholders. -->
+    <article class="card">
+      <div class="card-top">
+        <div class="card-title"><span class="rank">1</span><h3>[Restaurant name]</h3></div>
+        <span class="rating">★ 4.4 <span class="votes">([votes])</span></span>
+      </div>
+      <div class="card-meta"><span class="cuisines">North Indian, Mughlai</span><span>·</span><span>Koramangala 5th Block</span></div>
+      <div class="badges"><span class="badge">₹[cost] for two</span><span class="badge">Casual Dining</span></div>
+      <div class="liked">Liked for: Biryani, Kebabs</div>
+      <p class="why"><b>Why this fits:</b> [LLM explanation of why this restaurant matches the search.]</p>
+    </article>
+
+    <!-- Card for a restaurant outside the chosen area: shows the "Near …" badge -->
+    <article class="card">
+      <div class="card-top">
+        <div class="card-title"><span class="rank">2</span><h3>[Restaurant name]</h3></div>
+        <span class="rating">★ 4.2 <span class="votes">([votes])</span></span>
+      </div>
+      <div class="card-meta"><span class="cuisines">Chinese, North Indian</span><span>·</span><span>Koramangala 6th Block</span></div>
+      <div class="badges"><span class="badge">₹[cost] for two</span><span class="badge">Casual Dining</span><span class="badge badge-near">Near Koramangala 5th Block</span></div>
+      <div class="liked">Liked for: Biryani</div>
+      <p class="why"><b>Why this fits:</b> [LLM explanation of why this restaurant matches the search.]</p>
+    </article>
+
+    <!-- Card with an unconfirmed preference: shows the warning line -->
+    <article class="card">
+      <div class="card-top">
+        <div class="card-title"><span class="rank">3</span><h3>[Restaurant name]</h3></div>
+        <span class="rating">★ 4.0 <span class="votes">([votes])</span></span>
+      </div>
+      <div class="card-meta"><span class="cuisines">North Indian</span><span>·</span><span>Koramangala 5th Block</span></div>
+      <div class="badges"><span class="badge">₹[cost] for two</span><span class="badge">Quick Bites</span></div>
+      <div class="liked">Liked for: Biryani</div>
+      <p class="why"><b>Why this fits:</b> [LLM explanation of why this restaurant matches the search.]</p>
+      <div class="unverified">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3 2 20h20L12 3z"/><path d="M12 10v4M12 17h.01"/></svg>
+        Could not confirm: family-friendly
+      </div>
+    </article>
+
+    <p class="footnote">Data comes from a fixed Zomato snapshot for Bangalore, so some places may have closed or changed. Check before you go.</p>
+  </section>
+</main>
+
+<script>
+  // Budget buttons: only one can be selected at a time.
+  document.querySelectorAll(".budget-option").forEach(function (button) {
+    button.addEventListener("click", function () {
+      document.querySelectorAll(".budget-option").forEach(function (b) { b.setAttribute("aria-pressed", "false"); });
+      button.setAttribute("aria-pressed", "true");
+    });
+  });
+  // Rating slider: show the chosen value.
+  var slider = document.getElementById("rating");
+  slider.addEventListener("input", function () {
+    document.getElementById("rating-value").textContent = "★ " + Number(slider.value).toFixed(1);
+  });
+</script>
+</body>
+</html>

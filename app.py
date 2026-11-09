@@ -11,6 +11,7 @@ from recommender.cuisines import menu_order
 from recommender.display import (
     FORM_STYLE,
     budget_option_label,
+    page_header,
     result_card,
     search_summary,
     summary_block,
@@ -109,7 +110,7 @@ def show_search_form(repository: RestaurantRepository) -> Preferences | None:
             help="For a great dish, whatever else the restaurant serves. The most popular "
             "dishes come first, then the rest from A to Z.",
         )
-        min_rating = st.slider("Minimum rating", 0.0, 5.0, 3.5, step=0.1, format="%.1f")
+        min_rating = st.slider("Minimum rating", 0.0, 5.0, 3.5, step=0.1, format="★ %.1f")
         include_unrated = st.checkbox("Include new and unrated restaurants")
         additional = st.text_input(
             "Anything else? (optional)",
@@ -135,6 +136,14 @@ def show_search_form(repository: RestaurantRepository) -> Preferences | None:
 def show_results(preferences: Preferences, repository: RestaurantRepository, result) -> None:
     # Dataset and user text goes through st.html after escaping, so Markdown, maths and HTML in
     # it display literally. Results stay until the next search, with a label showing their search.
+    count = len(result.results)
+    heading, count_column = st.columns([3, 1], vertical_alignment="bottom")
+    heading.subheader("Top picks for you")
+    count_column.markdown(
+        f"<div style='text-align: right; color: #A3ACB9; font-size: 0.85rem;'>"
+        f"{count} result{'' if count == 1 else 's'}</div>",
+        unsafe_allow_html=True,
+    )
     st.html(search_summary(preferences, repository.metadata.budget_bands))
     for relaxation in result.relaxations:
         st.info(relaxation.message)
@@ -152,10 +161,11 @@ def show_results(preferences: Preferences, repository: RestaurantRepository, res
 
 def main() -> None:
     st.set_page_config(page_title=APP_NAME, page_icon="🍽️", layout="wide")
-    st.title(APP_NAME)
-    # Fixed CSS from this app, with no dataset or user text in it.
+    # Fixed CSS and header markup from this app, with no dataset or user text in them.
     st.html(FORM_STYLE)
-    st.caption("Tell us what you're looking for, and we'll suggest where to eat.")
+    # The header shows whether AI ranking is on once the settings have loaded.
+    header = st.empty()
+    header.html(page_header(None))
 
     try:
         settings = load_settings()
@@ -172,6 +182,7 @@ def main() -> None:
     configure_logging()
     service = load_service(settings, repository)
     ranker = service.llm_client
+    header.html(page_header(ranker is not None))
     if ranker is None:
         st.info(MISSING_KEY_MESSAGE.format(key_name=settings.api_key_name))
     # The form on the left and results on the right. On a phone the columns stack.
@@ -185,7 +196,6 @@ def main() -> None:
                 st.session_state["last_search"] = (preferences, service.recommend(preferences))
         if "last_search" in st.session_state:
             last_preferences, result = st.session_state["last_search"]
-            st.subheader("Top picks for you")
             show_results(last_preferences, repository, result)
         else:
             st.markdown(EMPTY_RESULTS_MESSAGE)

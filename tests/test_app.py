@@ -43,13 +43,21 @@ def submit(app):
 
 
 def html_blocks(app):
-    # The page's style block is fixed CSS, not results, so it is left out.
-    return [e.proto.body for e in app.get("html") if "<style>" not in e.proto.body]
+    # The page's style block and header are fixed markup, not results, so they are left out.
+    return [
+        e.proto.body
+        for e in app.get("html")
+        if "<style>" not in e.proto.body and "blb-header" not in e.proto.body
+    ]
+
+
+def header(app):
+    return next(e.proto.body for e in app.get("html") if "blb-header" in e.proto.body)
 
 
 def test_form_shows_every_preference(data_dir):
     app = start()
-    assert app.title[0].value == "BLB (Banga-Luru_Bytes)"
+    assert "Banga-Luru Bytes" in header(app)
     assert app.selectbox[0].options == ["BTM", "HSR", "MG Road"]
     assert len(app.radio[0].options) == 4
     assert "for two" in app.radio[0].options[1]
@@ -150,6 +158,7 @@ def test_missing_api_key_message_keeps_results_working(data_dir, monkeypatch):
     monkeypatch.delenv("GROQ_API_KEY", raising=False)
     monkeypatch.setattr("recommender.config.load_dotenv", lambda *a, **k: False)
     app = submit(start())
+    assert "AI ranking off" in header(app)
     assert any("add GROQ_API_KEY" in message.value for message in app.info)
     assert len(html_blocks(app)) == 6
 
@@ -166,6 +175,7 @@ def test_ai_results_show_summary_explanations_and_unconfirmed_preferences(data_d
     blocks = html_blocks(submit(app))
     page = "".join(blocks)
     assert not any("no API key" in message.value for message in app.info)
+    assert "AI ranking on" in header(app)
     assert not any("AI explanations" in w.value for w in app.warning)
     assert "Choose $" in blocks[1] and "for calm." in blocks[1]
     assert "Why this fits:</b> Quiet &lt;b&gt;and&lt;/b&gt; *cosy*." in page

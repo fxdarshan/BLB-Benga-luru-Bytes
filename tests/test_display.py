@@ -125,6 +125,15 @@ def test_card_lines_are_tagged_for_hover_highlighting():
     assert html.count('class="blb-line ') == 3
 
 
+def test_page_header_shows_whether_ai_ranking_is_on():
+    from recommender.display import page_header
+
+    assert "AI ranking on" in page_header(True)
+    assert "AI ranking off" in page_header(False)
+    assert "AI ranking" not in page_header(None)
+    assert "Banga-Luru Bytes" in page_header(None)
+
+
 def test_page_style_highlights_hovered_and_chosen_items():
     from recommender.display import FORM_STYLE
 

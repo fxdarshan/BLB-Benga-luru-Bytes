@@ -189,11 +189,12 @@ def main() -> None:
     form_column, results_column = st.columns([5, 7], gap="large")
     with form_column:
         preferences = show_search_form(repository)
-    with results_column:
+        # The spinner sits under the form, so it never pushes the results up and down.
         if preferences is not None:
             message = "Ranking restaurants with AI..." if ranker else "Finding restaurants..."
             with st.spinner(message):
                 st.session_state["last_search"] = (preferences, service.recommend(preferences))
+    with results_column:
         if "last_search" in st.session_state:
             last_preferences, result = st.session_state["last_search"]
             show_results(last_preferences, repository, result)

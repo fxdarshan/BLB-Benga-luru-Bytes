@@ -76,7 +76,7 @@ def test_changing_a_widget_does_not_start_a_search(data_dir):
 def test_search_shows_cards_with_required_fields_and_notice(data_dir):
     app = submit(start())
     blocks = html_blocks(app)
-    assert blocks[0].startswith('<div class="blb-search">')
+    assert blocks[0].startswith('<div class="blb-search"')
     assert '<span class="blb-chip">BTM</span>' in blocks[0]
     assert len(blocks) == 6
     assert "★ 4.0 (100 votes)" in blocks[1]

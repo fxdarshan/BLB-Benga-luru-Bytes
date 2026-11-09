@@ -10,13 +10,17 @@ from recommender.dishes import dish_pattern
 from recommender.models import BudgetBand, Preferences, RankedResult, Restaurant
 
 NOT_LISTED = "Not listed"
-# The gap between one result rising into place and the next.
-RISE_STEP_MS = 120
+# Results wait this long before rising, so the motion doesn't start in the busy frame where
+# the browser first lays them out, which would drop its first frames.
+RISE_START_MS = 100
+# The gap between one result rising into place and the next. Each rise lasts much longer than
+# this, so the motions overlap into one continuous flow.
+RISE_STEP_MS = 90
 
 
 def _rise_delay(step: int) -> str:
     """When a result starts rising into place. Step 0 is the search chips."""
-    return f"animation-delay: {max(step, 0) * RISE_STEP_MS}ms;"
+    return f"animation-delay: {RISE_START_MS + max(step, 0) * RISE_STEP_MS}ms;"
 
 
 # About two lines on a card. Longer reviews are cut at a word, with an ellipsis.
@@ -74,7 +78,7 @@ def search_summary(preferences: Preferences, bands: dict[str, BudgetBand]) -> st
         parts.append(f"“{preferences.additional}”")
     chips = "".join(f'<span class="blb-chip">{escape(part)}</span>' for part in parts)
     label = '<span class="blb-search-label">Results for:</span>'
-    return f'<div class="blb-search">{label}{chips}</div>'
+    return f'<div class="blb-search" style="{_rise_delay(0)}">{label}{chips}</div>'
 
 
 # The BLB dark theme. Colours match design/code.html and .streamlit/config.toml; design/DESIGN.md
@@ -249,16 +253,36 @@ button:hover p,
 /* ---------- Results scroll in ---------- */
 /* Each result rises into place one after another, as if scrolling in. Each block sets its
    own delay, so the search chips come first, then the summary, then the cards in order. */
+/* Only opacity and transform change, which the browser animates on the GPU without redoing
+   the layout. A long ease-out glides each block in and settles it gently. */
 @keyframes blb-rise {
-  from { opacity: 0; transform: translateY(28px); }
-  to { opacity: 1; transform: none; }
+  from { opacity: 0; transform: translate3d(0, 24px, 0); }
+  to { opacity: 1; transform: translate3d(0, 0, 0); }
 }
 .blb-search, .blb-summary, .blb-card {
-  animation: blb-rise 0.55s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  animation: blb-rise 0.8s cubic-bezier(0.22, 1, 0.36, 1) both;
+  backface-visibility: hidden;
 }
+
+/* While a new search runs, the old results glide out rather than greying and then vanishing
+   in one frame, so the new ones rise into a clear space. Streamlit marks them stale and dims
+   their containers; the dimming is turned off here so only this exit shows. */
+@keyframes blb-leave {
+  from { opacity: 1; transform: translate3d(0, 0, 0); }
+  to { opacity: 0; transform: translate3d(0, -12px, 0); }
+}
+[data-stale="true"]:has(.blb-search, .blb-summary, .blb-card) {
+  opacity: 1 !important; transition: none !important;
+}
+[data-stale="true"] :is(.blb-search, .blb-summary, .blb-card) {
+  animation: blb-leave 0.35s cubic-bezier(0.4, 0, 1, 1) forwards;
+  animation-delay: 0ms !important;
+}
+
 /* People who ask their device for less motion see the results straight away. */
 @media (prefers-reduced-motion: reduce) {
-  .blb-search, .blb-summary, .blb-card { animation: none; }
+  .blb-search, .blb-summary, .blb-card,
+  [data-stale="true"] :is(.blb-search, .blb-summary, .blb-card) { animation: none; }
 }
 </style>
 """

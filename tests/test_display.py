@@ -147,20 +147,26 @@ def test_card_without_a_review_shows_no_review_line():
 
 
 def test_results_rise_in_one_after_another():
-    from recommender.display import FORM_STYLE, RISE_STEP_MS, summary_block
+    from recommender.display import FORM_STYLE, RISE_START_MS, RISE_STEP_MS, summary_block
 
     candidate = Candidate(make_restaurant(), 4.0, 0, True)
     delays = [
         result_card(position, RankedResult(candidate), "BTM").split("animation-delay: ")[1]
         for position in (1, 2, 3)
     ]
+    # The chips are step 0 and the summary step 1, so the first card is step 2.
     assert [int(d.split("ms")[0]) for d in delays] == [
-        2 * RISE_STEP_MS,
-        3 * RISE_STEP_MS,
-        4 * RISE_STEP_MS,
+        RISE_START_MS + 2 * RISE_STEP_MS,
+        RISE_START_MS + 3 * RISE_STEP_MS,
+        RISE_START_MS + 4 * RISE_STEP_MS,
     ]
-    assert f"animation-delay: {RISE_STEP_MS}ms" in summary_block("Both are good.")
+    chips = search_summary(Preferences(area="BTM"), BANDS)
+    assert f"animation-delay: {RISE_START_MS}ms" in chips
+    summary_delay = RISE_START_MS + RISE_STEP_MS
+    assert f"animation-delay: {summary_delay}ms" in summary_block("Both are good.")
     assert "@keyframes blb-rise" in FORM_STYLE
+    # Old results glide out while a new search runs, instead of vanishing in one frame.
+    assert "@keyframes blb-leave" in FORM_STYLE
     # Less motion for anyone whose device asks for it.
     assert "prefers-reduced-motion: reduce" in FORM_STYLE
 

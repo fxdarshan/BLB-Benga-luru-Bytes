@@ -146,6 +146,25 @@ def test_card_without_a_review_shows_no_review_line():
     assert "A customer said" not in card()
 
 
+def test_results_rise_in_one_after_another():
+    from recommender.display import FORM_STYLE, RISE_STEP_MS, summary_block
+
+    candidate = Candidate(make_restaurant(), 4.0, 0, True)
+    delays = [
+        result_card(position, RankedResult(candidate), "BTM").split("animation-delay: ")[1]
+        for position in (1, 2, 3)
+    ]
+    assert [int(d.split("ms")[0]) for d in delays] == [
+        2 * RISE_STEP_MS,
+        3 * RISE_STEP_MS,
+        4 * RISE_STEP_MS,
+    ]
+    assert f"animation-delay: {RISE_STEP_MS}ms" in summary_block("Both are good.")
+    assert "@keyframes blb-rise" in FORM_STYLE
+    # Less motion for anyone whose device asks for it.
+    assert "prefers-reduced-motion: reduce" in FORM_STYLE
+
+
 def test_page_header_shows_whether_ai_ranking_is_on():
     from recommender.display import page_header
 

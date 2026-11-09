@@ -10,6 +10,15 @@ from recommender.dishes import dish_pattern
 from recommender.models import BudgetBand, Preferences, RankedResult, Restaurant
 
 NOT_LISTED = "Not listed"
+# The gap between one result rising into place and the next.
+RISE_STEP_MS = 120
+
+
+def _rise_delay(step: int) -> str:
+    """When a result starts rising into place. Step 0 is the search chips."""
+    return f"animation-delay: {max(step, 0) * RISE_STEP_MS}ms;"
+
+
 # About two lines on a card. Longer reviews are cut at a word, with an ellipsis.
 MAX_REVIEW_CHARS = 200
 
@@ -236,6 +245,21 @@ button:hover p,
 .blb-line:hover { transform: scale(1.08); font-weight: 700 !important; }
 .blb-card { transition: border-color 0.12s ease; }
 .blb-card:hover { border-color: #F5A524 !important; }
+
+/* ---------- Results scroll in ---------- */
+/* Each result rises into place one after another, as if scrolling in. Each block sets its
+   own delay, so the search chips come first, then the summary, then the cards in order. */
+@keyframes blb-rise {
+  from { opacity: 0; transform: translateY(28px); }
+  to { opacity: 1; transform: none; }
+}
+.blb-search, .blb-summary, .blb-card {
+  animation: blb-rise 0.55s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+/* People who ask their device for less motion see the results straight away. */
+@media (prefers-reduced-motion: reduce) {
+  .blb-search, .blb-summary, .blb-card { animation: none; }
+}
 </style>
 """
 
@@ -264,7 +288,7 @@ def page_header(ai_ranking: bool | None) -> str:
 def summary_block(summary: str) -> str:
     """Show the LLM's comparison of its top choices, escaped so that it displays literally."""
     return (
-        '<div class="blb-summary">'
+        f'<div class="blb-summary" style="{_rise_delay(1)}">'
         f'<div class="blb-summary-label">{_SPARKLE_ICON}AI summary</div>'
         f'<div class="blb-line">{escape(summary)}</div>'
         "</div>"
@@ -320,7 +344,8 @@ def result_card(
         listed = ", ".join(escape(p) for p in item.unverified_preferences)
         unverified = f'<div class="blb-unverified">{_WARNING_ICON}Could not confirm: {listed}</div>'
     return (
-        '<div class="blb-card">'
+        # The chips and summary come first, so the first card is step 2.
+        f'<div class="blb-card" style="{_rise_delay(position + 1)}">'
         '<div class="blb-line blb-title">'
         f'<span class="blb-name"><span class="blb-rank">{position}</span>'
         f"{escape(restaurant.name)}</span>"

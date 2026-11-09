@@ -25,6 +25,23 @@ def _normalise_id(value: str) -> str:
     return value.strip().upper()
 
 
+def _normalise_name(value: str) -> str:
+    return " ".join(value.casefold().split())
+
+
+def _aliases_by_name(candidates_by_alias: dict[str, Candidate]) -> dict[str, str]:
+    """Map each candidate's name to its alias, leaving out names that more than one shares.
+
+    The prompt asks for names everywhere else, so the model sometimes gives a name as the id.
+    A shared name, such as a chain's branches, can't say which branch was meant.
+    """
+    by_name: dict[str, str | None] = {}
+    for alias, candidate in candidates_by_alias.items():
+        name = _normalise_name(candidate.restaurant.name)
+        by_name[name] = None if name in by_name else alias
+    return {name: alias for name, alias in by_name.items() if alias is not None}
+
+
 def replace_aliases(text: str, candidates_by_alias: dict[str, Candidate]) -> str:
     """Swap any alias that was sent, such as R3, for that restaurant's name."""
 
@@ -52,8 +69,11 @@ def validate_ranking(
     results: list[RankedResult] = []
     seen: set[str] = set()
     dropped = 0
+    aliases_by_name = _aliases_by_name(candidates_by_alias)
     for item in ranking.recommendations:
         alias = _normalise_id(item.candidate_id)
+        if alias not in candidates_by_alias:
+            alias = aliases_by_name.get(_normalise_name(item.candidate_id), alias)
         explanation = item.explanation.strip()
         if alias not in candidates_by_alias or alias in seen or not explanation:
             dropped += 1

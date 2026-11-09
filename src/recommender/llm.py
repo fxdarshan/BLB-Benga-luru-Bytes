@@ -17,7 +17,10 @@ RANKING_SCHEMA: dict[str, Any] = {
             "items": {
                 "type": "object",
                 "properties": {
-                    "candidate_id": {"type": "string"},
+                    "candidate_id": {
+                        "type": "string",
+                        "description": "The candidate's id from <candidates>, such as R1",
+                    },
                     "explanation": {"type": "string"},
                     "unverified_preferences": {"type": "array", "items": {"type": "string"}},
                 },

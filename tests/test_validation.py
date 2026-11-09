@@ -53,6 +53,27 @@ def test_ids_are_matched_ignoring_case_and_spaces():
     assert ids(validate(ranking((" r2 ", "Fine.")))) == ["id2"]
 
 
+def test_a_sent_restaurant_name_given_as_the_id_is_accepted():
+    # Seen with Groq: every pick named its restaurant instead of giving R1, R2...
+    result = validate(ranking(("Place 3", "Good."), ("  place   1 ", "Fine."), ("R2", "Real.")))
+    assert ids(result) == ["id3", "id1", "id2"]
+    assert result.dropped == 0
+
+
+def test_a_name_and_its_alias_count_as_the_same_pick():
+    result = validate(ranking(("R2", "First."), ("Place 2", "Second.")))
+    assert [r.explanation for r in result.results] == ["First."]
+    assert result.dropped == 1
+
+
+def test_a_name_shared_by_two_candidates_is_dropped():
+    sent = candidates(2)
+    sent["R3"] = Candidate(make_restaurant("id3", name="Place 1"), 4.0, 0, True)
+    result = validate(ranking(("Place 1", "Which branch?"), ("R2", "Real.")), sent=sent)
+    assert ids(result) == ["id2"]
+    assert result.dropped == 1
+
+
 def test_empty_explanations_are_dropped():
     result = validate(ranking(("R1", "   "), ("R2", "")))
     assert result.results == []

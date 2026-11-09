@@ -62,7 +62,8 @@ def search_summary(preferences: Preferences, bands: dict[str, BudgetBand]) -> st
     if preferences.additional:
         parts.append(f"“{preferences.additional}”")
     chips = "".join(f'<span class="blb-chip">{escape(part)}</span>' for part in parts)
-    return f'<div class="blb-search"><span class="blb-search-label">Results for:</span>{chips}</div>'
+    label = '<span class="blb-search-label">Results for:</span>'
+    return f'<div class="blb-search">{label}{chips}</div>'
 
 
 # The BLB dark theme. Colours match design/code.html and .streamlit/config.toml; design/DESIGN.md
@@ -131,10 +132,14 @@ button[kind="primaryFormSubmit"] p, button[kind="primary"] p {
 }
 /* Chosen cuisines and dishes: saffron text on a dark tag, instead of white on saffron. */
 [data-baseweb="tag"] { background: #2A2213 !important; }
-[data-baseweb="tag"], [data-baseweb="tag"] span, [data-baseweb="tag"] svg { color: #FFC35C !important; }
+[data-baseweb="tag"], [data-baseweb="tag"] span, [data-baseweb="tag"] svg {
+  color: #FFC35C !important;
+}
 
 /* ---------- Results ---------- */
-.blb-search { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; margin-bottom: 0.25rem; }
+.blb-search {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; margin-bottom: 0.25rem;
+}
 .blb-search-label { font-size: 0.85rem; color: #A3ACB9; margin-right: 0.15rem; }
 .blb-chip {
   padding: 0.3rem 0.75rem; border-radius: 999px; background: #1D222A; border: 1px solid #2F3541;
@@ -163,7 +168,8 @@ button[kind="primaryFormSubmit"] p, button[kind="primary"] p {
 }
 .blb-rank {
   flex: none; width: 2rem; height: 2rem; border-radius: 8px; background: #232831; color: #FFC35C;
-  display: inline-flex; align-items: center; justify-content: center; font-size: 1rem; font-weight: 700;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 1rem; font-weight: 700;
 }
 .blb-rating {
   padding: 0.25rem 0.65rem; border-radius: 8px; background: #12301F; color: #6EE7A8;
@@ -175,7 +181,8 @@ button[kind="primaryFormSubmit"] p, button[kind="primary"] p {
 .blb-cuisines { font-size: 1rem; font-weight: 700; color: #ECEEF1; }
 .blb-badges { display: flex; flex-wrap: wrap; gap: 0.5rem; }
 .blb-badge {
-  padding: 0.2rem 0.65rem; border-radius: 6px; background: #1D222A; font-size: 0.85rem; color: #C9D0DA;
+  padding: 0.2rem 0.65rem; border-radius: 6px; background: #1D222A;
+  font-size: 0.85rem; color: #C9D0DA;
 }
 .blb-badge.blb-near { background: #13202E; color: #A9CFF5; }
 .blb-dishes { font-size: 0.95rem; font-weight: 700; color: #FFC35C; }
@@ -283,15 +290,11 @@ def result_card(
         dishes = f'<div class="blb-dishes">Liked for: {listed}</div>'
     explanation = ""
     if item.explanation:
-        explanation = (
-            f'<div class="blb-why"><b>Why this fits:</b> {escape(item.explanation)}</div>'
-        )
+        explanation = f'<div class="blb-why"><b>Why this fits:</b> {escape(item.explanation)}</div>'
     unverified = ""
     if item.unverified_preferences:
         listed = ", ".join(escape(p) for p in item.unverified_preferences)
-        unverified = (
-            f'<div class="blb-unverified">{_WARNING_ICON}Could not confirm: {listed}</div>'
-        )
+        unverified = f'<div class="blb-unverified">{_WARNING_ICON}Could not confirm: {listed}</div>'
     return (
         '<div class="blb-card">'
         '<div class="blb-line blb-title">'

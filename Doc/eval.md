@@ -6,7 +6,9 @@ This document defines how to measure whether the recommendation flow works, for 
 
 > **Given a diner's preferences, does the LLM rank the shortlist well and explain it honestly, at an acceptable cost and speed?**
 
-**Status: proposed.** No code exists, so nothing here has been run. Every target is a starting proposal, and the test cases and grading need [your approval](#10-approvals-needed) at the points set out in that section.
+**Status: cases approved, harness built, no paid run yet.** The cases, preflight, runner, code checks (G1 to G7, Q2 to Q4, diagnostics) and zero-cost checks are in [`tests/eval/`](../tests/eval/). The judge metrics Q1 and Q5 to Q8 wait for the judge model to be chosen. Every target is still a starting proposal, and the grading needs [your approval](#10-approvals-needed) at the points set out in that section.
+
+Two behaviours differ from the text below. An empty explanation never reaches grading, because validation drops it and the search falls back, so the "null" check lands in `errors.jsonl` instead of failing `G5`. `G7` accepts a rupee amount that is a budget band's edge, such as "under ₹500", as well as the cost for two.
 
 ## 1. What This Evaluation Covers
 
@@ -40,7 +42,9 @@ There are **20 paid cases**, plus 1 free control case. Another 5 [confirmation c
 
 Only areas from the dataset's area list and cuisines seen in sampled rows are used. Whether each combination behaves as intended is [checked by a preflight script](#preflight-checks) once the data is built.
 
-Trying these on the real data led to changes to C1, R1 and R2, so they now use searches that behave as intended with the current budget ranges. **N1 still needs replacing:** it currently gets no unrated restaurants in its top 15, because unrated restaurants score below the many rated ones in a large area.
+Trying these on the real data led to changes to C1, R1 and R2, so they now use searches that behave as intended with the current budget ranges. N1 has been replaced. JP Nagar with no cuisine got no unrated restaurants in its top 15, and neither does any area without a cuisine filter, even at a 3.5 minimum: an unrated restaurant scores 3.38 (3.88 if local), below too many rated ones. Unrated restaurants appear only once the rated matches run out. N1 now uses Electronic City with South Indian: 5 rated matches, then 10 unrated from position 6, so unrated ones reach the 8 candidates the LLM sees, out of 85 matches.
+
+The preflight then moved S2 from Church Street, where only 2 of the 8 candidates take bookings, to Koramangala 7th Block, where 4 do and none of them is in the score-ranked top 3, so `Q4_soft_lift` has room to show an effect. The cases are approved and live in [`tests/eval/cases.json`](../tests/eval/cases.json), with the 5 confirmation cases K1 to K5 and the control Z1. The preflight checks the 8 candidates actually sent (`MAX_CANDIDATES`), not a top 15, and a case's `expected_relaxations` names the exact relaxations it should get.
 
 | ID | Tag | Area | Cuisine | Budget | Min. rating | Additional preferences | What it tests |
 | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -48,14 +52,14 @@ Trying these on the real data led to changes to C1, R1 and R2, so they now use s
 | C2 | `common` | Koramangala 5th Block | North Indian | any | 4.0 | | Plain search, large candidate pool |
 | C3 | `common` | MG Road | | any | 4.0 | | No cuisine chosen |
 | S1 | `soft-confirmable` | Jayanagar | South Indian | low | 3.5 | quick service | Data signal: `rest_types` has `Quick Bites` |
-| S2 | `soft-confirmable` | Church Street | | any | 3.5 | somewhere I can reserve a table | Data signal: `book_table` is true |
+| S2 | `soft-confirmable` | Koramangala 7th Block | | any | 3.5 | somewhere I can reserve a table | Data signal: `book_table` is true |
 | S3 | `soft-confirmable` | Banashankari | North Indian | any | 3.5 | buffet | Data signal: `listing_types` has `Buffet` |
 | S4 | `soft-confirmable` | Brigade Road | | any | 3.5 | pub for drinks with friends | Data signal: `Pubs and bars` or `Drinks & nightlife` |
 | U1 | `soft-unconfirmable` | HSR | | medium | 3.5 | family-friendly | `SEM-01` |
 | U2 | `soft-unconfirmable` | Lavelle Road | | any | 3.5 | open now, has parking | `SEM-05` |
 | R1 | `relaxed` | BTM | Thai | medium | 4.6 | | Rating relaxation, `PRM-01` |
 | R2 | `relaxed` | BTM | Thai | low | 4.0 | | Rating and budget relaxation, `PRM-01` |
-| N1 | `unrated` | JP Nagar | | any | 4.0 | new places worth trying | Unrated restaurants included, `PRM-02` |
+| N1 | `unrated` | Electronic City | South Indian | any | 4.0 | new places worth trying | Unrated restaurants included, `PRM-02` |
 | X1 | `conflict` | Whitefield | | high | 4.0 | really cheap | `SEM-02` |
 | X2 | `conflict` | BTM | Italian | any | 3.5 | I want Chinese food | `SEM-03` |
 | X3 | `conflict` | Malleshwaram | | any | 3.5 | somewhere in Delhi | `SEM-04` |

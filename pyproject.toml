@@ -4,24 +4,39 @@ version = "0.1.0"
 description = "BLB (Banga-Luru_Bytes): AI-powered restaurant recommendations for Bangalore"
 readme = "Doc/problemStatement.md"
 requires-python = ">=3.10"
+# What the API server needs. The Streamlit app and ingestion add their own groups below.
 dependencies = [
     "anthropic",
     "cachetools",
-    "datasets",
-    "ftfy",
+    "fastapi",
     "groq",
-    "pandas",
     "pyarrow",
     "pydantic",
     "python-dotenv",
-    "streamlit",
+    "uvicorn[standard]",
 ]
 
 [dependency-groups]
 dev = [
+    "httpx",
     "pytest",
     "ruff",
 ]
+# Builds data/ from the raw dataset: `uv run python -m recommender.ingest`.
+ingest = [
+    "datasets",
+    "ftfy",
+    "pandas",
+]
+# The local Streamlit app: `uv run streamlit run app.py`.
+ui = [
+    "streamlit",
+]
+
+[tool.uv]
+# Installed locally by default, so every command works as before. The server image leaves
+# them out with `uv sync --no-default-groups`.
+default-groups = ["dev", "ingest", "ui"]
 
 [build-system]
 requires = ["hatchling"]

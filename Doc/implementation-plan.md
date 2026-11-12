@@ -325,15 +325,28 @@ All of these use a fake LLM client, so they cost nothing.
 
 ### Tasks
 
+**Status: preparation complete (2026-11-12).** The pilot is next, and needs your go-ahead. **The paid steps below were deferred** when deployment work (Phase 7) started on 2026-11-12, so the deployed model and effort settings haven't been evaluated yet.
+
 **Prepare, at no API cost**
 
-- [ ] Add your own 3 to 5 real searches to the draft cases, then [approve the case set](eval.md#10-approvals-needed)
-- [ ] Create `tests/eval/cases.json` with the approved cases, plus 5 confirmation cases to keep aside until the end
-- [ ] Write `tests/eval/preflight.py`, and fix or replace any case that doesn't test what it was written to test
-- [ ] Write `tests/eval/run_eval.py` to call `service.recommend()` with `use_cache=False`, meeting the [runner requirements](eval.md#5-runner-requirements)
-- [ ] Add the code checks: guardrails `G1` to `G7`, `Q2` to `Q4`, and the diagnostics
-- [ ] Compare results with the score-ranked baseline
-- [ ] Run the [zero-cost checks](eval.md#6-checking-the-evaluation-itself) that don't call the API
+- [x] Add your own 3 to 5 real searches to the draft cases, then [approve the case set](eval.md#10-approvals-needed). Approved as drafted, with no real searches added, so every case is still `synthesized`.
+- [x] Create `tests/eval/cases.json` with the approved cases, plus 5 confirmation cases to keep aside until the end (K1 to K5)
+- [x] Write `tests/eval/preflight.py`, and fix or replace any case that doesn't test what it was written to test. N1 moved to Electronic City with South Indian, S2 to Koramangala 7th Block, and K2 to Basavanagudi. All 26 cases pass.
+- [x] Write `tests/eval/run_eval.py` to call `service.recommend()` with `use_cache=False`, meeting the [runner requirements](eval.md#5-runner-requirements)
+- [x] Add the code checks: guardrails `G1` to `G7`, `Q2` to `Q4`, and the diagnostics, in `tests/eval/checks.py`
+- [x] Compare results with the score-ranked baseline. Each attempt records `Q4_soft_lift` and `D3_rank_changed` against the score order of the same candidates. The figures come from the pilot.
+- [x] Run the [zero-cost checks](eval.md#6-checking-the-evaluation-itself) that don't call the API: `tests/eval/selfcheck.py` passes all of them except "prompt rule removed", which needs the judge
+
+How to run each piece:
+
+```bash
+uv run python tests/eval/preflight.py
+uv run python tests/eval/selfcheck.py
+uv run python tests/eval/run_eval.py --cases C1,S2,R1 --reps 1 --max-spend 0.05 --pace 30
+uv run python tests/eval/report.py .claude/hillclimb/recommendation/baseline
+```
+
+A paid run refuses to start without `--max-spend`. `--pace 30` spaces calls for Groq's free-plan token limit.
 
 **Pilot and calibrate**
 
@@ -384,6 +397,8 @@ All of these use a fake LLM client, so they cost nothing.
 **Goal:** Host the app so that others can use it.
 
 **Design:** [Section 11](architecture.md#security)
+
+**Plan:** [deployment-plan.md](deployment-plan.md) covers hosting the backend on Railway and the frontend on Vercel. It replaces the platform choice below and keeps these checks.
 
 ### Before starting
 

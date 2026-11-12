@@ -66,8 +66,8 @@ def budget_option_label(name: str, bands: dict[str, BudgetBand]) -> str:
     return f"{name.capitalize()} ({bands[name].label()} for two)"
 
 
-def search_summary(preferences: Preferences, bands: dict[str, BudgetBand]) -> str:
-    """Describe a search in words, returned as escaped HTML."""
+def search_summary_parts(preferences: Preferences, bands: dict[str, BudgetBand]) -> list[str]:
+    """Describe a search in words, one plain-text chip per part."""
     parts = [preferences.area, budget_option_label(preferences.budget, bands)]
     parts.append(", ".join(preferences.cuisines) or "Any cuisine")
     if preferences.dishes:
@@ -76,6 +76,12 @@ def search_summary(preferences: Preferences, bands: dict[str, BudgetBand]) -> st
     parts.append(f"{rating}, or unrated" if preferences.include_unrated else rating)
     if preferences.additional:
         parts.append(f"“{preferences.additional}”")
+    return parts
+
+
+def search_summary(preferences: Preferences, bands: dict[str, BudgetBand]) -> str:
+    """Describe a search in words, returned as escaped HTML."""
+    parts = search_summary_parts(preferences, bands)
     chips = "".join(f'<span class="blb-chip">{escape(part)}</span>' for part in parts)
     label = '<span class="blb-search-label">Results for:</span>'
     return f'<div class="blb-search" style="{_rise_delay(0)}">{label}{chips}</div>'
@@ -319,13 +325,21 @@ def summary_block(summary: str) -> str:
     )
 
 
-def review_block(review: str | None) -> str:
-    """Show a customer's review, escaped and cut to about two lines."""
-    if not review:
-        return ""
+def shorten_review(review: str | None) -> str | None:
+    """A customer's review cut to about two lines, at a word, as plain text."""
+    if not review or not review.strip():
+        return None
     text = review.strip()
     if len(text) > MAX_REVIEW_CHARS:
         text = text[:MAX_REVIEW_CHARS].rsplit(" ", 1)[0].rstrip(" ,;:.") + "…"
+    return text
+
+
+def review_block(review: str | None) -> str:
+    """Show a customer's review, escaped and cut to about two lines."""
+    text = shorten_review(review)
+    if text is None:
+        return ""
     return (
         '<div class="blb-review"><span class="blb-review-label">A customer said</span>'
         f"“{escape(text)}”</div>"

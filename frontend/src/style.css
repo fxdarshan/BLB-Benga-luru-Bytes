@@ -1,0 +1,275 @@
+/* BLB dark theme, from blb_dark_dining_finder/code.html and DESIGN.md. Every colour, font and
+   size lives in these variables. The page is dark only, by design. */
+:root {
+  --bg: #0e1013;
+  --header: #12151a;
+  --surface: #161a20;
+  --field: #1d222a;
+  --rank: #232831;
+
+  --border: #262b35;
+  --border-field: #2f3541;
+
+  --text: #eceef1;
+  --text-body: #d5dae1;
+  --text-label: #c9d0da;
+  --text-muted: #a3acb9;
+  --text-faint: #8c95a3;
+
+  --accent: #f5a524;
+  --accent-text: #ffc35c;
+  --accent-soft: #2a2213;
+  --on-accent: #1a1206;
+
+  --rating-bg: #12301f;
+  --rating-text: #6ee7a8;
+  --unrated-bg: #23262d;
+  --unrated-text: #c9d0da;
+  --info-bg: #13202e;
+  --info-border: #1f3a57;
+  --info-text: #a9cff5;
+  --warn-bg: #2a2213;
+  --warn-border: #5a4415;
+  --warn-text: #f5c56b;
+  --error-bg: #2e1517;
+  --error-border: #5c2a2e;
+  --error-text: #f5a9a9;
+  --live: #4ade80;
+  --off: #8c95a3;
+
+  --font-body: Inter, system-ui, sans-serif;
+  --font-heading: "Space Grotesk", Inter, sans-serif;
+
+  --radius-card: 16px;
+  --radius-field: 10px;
+  --radius-chip: 8px;
+
+  /* Results rise in one after another: this long a wait, then this gap between each. */
+  --rise-start: 100ms;
+  --rise-step: 90ms;
+
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+h1, h2, h3 { font-family: var(--font-heading); margin: 0; letter-spacing: -0.01em; }
+p { margin: 0; }
+svg { flex: none; }
+[hidden] { display: none !important; }
+
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* ---------- Header ---------- */
+.header { background: var(--header); border-bottom: 1px solid var(--rank); }
+.header-inner {
+  max-width: 1280px; margin: 0 auto; padding: 18px 32px;
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 24px;
+}
+.brand { display: flex; align-items: center; gap: 14px; }
+.logo {
+  width: 40px; height: 40px; border-radius: 10px; flex: none;
+  background: var(--accent); color: var(--on-accent);
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-heading); font-weight: 700; font-size: 15px;
+}
+.brand-name { font-weight: 700; font-size: 20px; display: block; line-height: 1.3; }
+.brand-tagline { font-size: 13px; color: var(--text-muted); display: block; }
+.status-pill {
+  display: flex; align-items: center; gap: 8px; padding: 6px 12px;
+  border: 1px solid var(--border-field); border-radius: 999px; font-size: 13px; color: var(--text-label);
+}
+.status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--live); }
+.status-dot.off { background: var(--off); }
+
+/* ---------- Layout ---------- */
+.layout {
+  max-width: 1280px; margin: 0 auto; padding: 32px;
+  display: flex; flex-wrap: wrap; align-items: flex-start; gap: 32px;
+}
+.results { flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column; gap: 16px; }
+
+/* ---------- Search form ---------- */
+.search-form {
+  flex: 1 1 340px; max-width: 420px; min-width: 0;
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-card);
+  padding: 24px; display: flex; flex-direction: column; gap: 22px;
+}
+.search-form h2 { font-size: 20px; font-weight: 600; }
+.field { display: flex; flex-direction: column; gap: 8px; border: 0; margin: 0; padding: 0; min-width: 0; }
+.field-label { font-size: 13px; font-weight: 600; color: var(--text-label); padding: 0; }
+.field-label .optional { font-weight: 400; color: var(--text-faint); }
+.field-hint { font-size: 12px; color: var(--text-faint); }
+.input, .select {
+  height: 46px; padding: 0 14px; border-radius: var(--radius-field); width: 100%;
+  border: 1px solid var(--border-field); background: var(--field); color: var(--text);
+  font: inherit; font-size: 15px;
+}
+.select { font-weight: 600; }
+.input::placeholder { color: var(--text-faint); }
+.input:focus, .select:focus, .tag-box:focus-within { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+.budget-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.budget-option {
+  min-height: 56px; padding: 8px 12px; border-radius: var(--radius-field); text-align: left; cursor: pointer;
+  border: 1px solid var(--border-field); background: var(--field); color: var(--text-label); font: inherit;
+}
+.budget-option:hover { border-color: var(--text-faint); }
+.budget-option[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); color: #ffd58a; }
+.budget-name { display: block; font-weight: 600; font-size: 14px; }
+.budget-range { display: block; font-size: 12px; opacity: 0.85; }
+
+.tag-box {
+  min-height: 46px; padding: 6px; border-radius: var(--radius-field);
+  border: 1px solid var(--border-field); background: var(--field);
+  display: flex; flex-wrap: wrap; align-items: center; gap: 6px;
+}
+.tag {
+  display: inline-flex; align-items: center; gap: 6px; padding: 6px 6px 6px 10px; border-radius: var(--radius-chip);
+  background: var(--accent-soft); color: var(--accent-text); font-size: 13px; font-weight: 600;
+}
+.tag-remove {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 24px; height: 24px; padding: 0; border: 0; border-radius: 6px;
+  background: transparent; color: inherit; cursor: pointer;
+}
+.tag-remove:hover { background: rgba(255, 195, 92, 0.15); }
+/* On touch screens, give the remove button a full-size target without growing the tag. */
+@media (pointer: coarse) {
+  .tag-remove { width: 40px; height: 40px; margin: -8px -6px -8px -4px; }
+}
+.tag-input {
+  flex: 1 1 100px; min-width: 80px; height: 32px; padding: 0 8px; border: 0; background: transparent;
+  color: var(--text); font: inherit; font-size: 14px; outline: none;
+}
+.tag-input::placeholder { color: var(--text-faint); }
+
+.rating-row { display: flex; justify-content: space-between; align-items: baseline; }
+.rating-value { font-size: 15px; font-weight: 700; color: var(--accent-text); }
+input[type="range"], input[type="checkbox"] { accent-color: var(--accent); }
+input[type="range"] { width: 100%; min-height: 28px; }
+.checkbox { display: flex; align-items: center; gap: 10px; font-size: 14px; color: var(--text-label); min-height: 44px; cursor: pointer; }
+.checkbox input { width: 18px; height: 18px; }
+
+.btn-primary {
+  height: 50px; border: 0; border-radius: 12px; background: var(--accent); color: var(--on-accent);
+  font: inherit; font-size: 16px; font-weight: 700; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+}
+.btn-primary:hover:not(:disabled) { filter: brightness(1.08); }
+.btn-primary:disabled { opacity: 0.6; cursor: progress; }
+.btn-primary:focus-visible { outline-offset: 3px; }
+
+/* The loading message sits under the button, so the results never jump. */
+.form-status { min-height: 20px; margin-top: -10px; font-size: 13px; color: var(--text-muted); display: flex; align-items: center; gap: 8px; }
+.form-status.error { color: var(--error-text); }
+.spinner {
+  width: 14px; height: 14px; border-radius: 50%; flex: none;
+  border: 2px solid var(--border-field); border-top-color: var(--accent);
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ---------- Results ---------- */
+.empty-state { color: var(--text-muted); padding-top: 8px; }
+.empty-state strong { color: var(--text); }
+.results-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px; }
+.results-head h2 { font-size: 26px; font-weight: 600; }
+.count { font-size: 13px; color: var(--text-muted); }
+
+.chips { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.chips-label { font-size: 13px; color: var(--text-faint); }
+.chip {
+  padding: 6px 12px; border-radius: 999px; background: var(--field); overflow-wrap: anywhere;
+  border: 1px solid var(--border-field); font-size: 13px; color: var(--text-label);
+}
+
+.notice {
+  display: flex; gap: 12px; align-items: flex-start; padding: 12px 16px; border-radius: 12px;
+  background: var(--info-bg); border: 1px solid var(--info-border); color: var(--info-text); font-size: 14px;
+}
+.notice svg { margin-top: 2px; }
+.notice.warn { background: var(--warn-bg); border-color: var(--warn-border); color: var(--warn-text); }
+.notice.error { background: var(--error-bg); border-color: var(--error-border); color: var(--error-text); }
+
+.summary { padding: 18px 20px; border-radius: 14px; background: var(--surface); border: 1px solid var(--border); }
+.summary-label {
+  display: flex; align-items: center; gap: 8px; margin-bottom: 8px;
+  font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent-text);
+}
+.summary p { color: var(--text-body); line-height: 1.6; }
+
+.card {
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-card);
+  padding: 20px 22px; display: flex; flex-direction: column; gap: 10px;
+  transition: border-color 0.12s ease;
+}
+.card:hover { border-color: var(--accent); }
+.card-top { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-start; gap: 8px 16px; }
+.card-title { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.card-title h3 { font-size: 20px; font-weight: 600; overflow-wrap: anywhere; }
+.rank {
+  width: 32px; height: 32px; border-radius: var(--radius-chip); background: var(--rank); color: var(--accent-text);
+  display: flex; align-items: center; justify-content: center; font-family: var(--font-heading); font-weight: 700; flex: none;
+}
+.rating {
+  display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: var(--radius-chip);
+  background: var(--rating-bg); color: var(--rating-text); font-weight: 700; font-size: 14px; white-space: nowrap;
+}
+.rating .votes { font-weight: 500; color: #9fd9bc; }
+.rating.unrated { background: var(--unrated-bg); color: var(--unrated-text); }
+.card-meta { display: flex; flex-wrap: wrap; gap: 4px 10px; font-size: 14px; color: var(--text-muted); }
+.cuisines { font-weight: 700; color: var(--text); font-size: 15px; }
+.badges { display: flex; flex-wrap: wrap; gap: 8px; }
+.badge { padding: 4px 10px; border-radius: 6px; background: var(--field); font-size: 13px; color: var(--text-label); }
+.badge-near { background: var(--info-bg); color: var(--info-text); }
+.liked { font-size: 14px; font-weight: 700; color: var(--accent-text); }
+.why { padding-top: 10px; border-top: 1px solid var(--rank); color: var(--text-body); font-size: 14px; line-height: 1.6; }
+.why b { color: var(--text); }
+.review {
+  margin: 0; padding: 10px 14px; border-left: 3px solid var(--border-field); border-radius: 0 8px 8px 0;
+  background: var(--field); color: var(--text-body); font-size: 14px; font-style: italic; line-height: 1.55;
+}
+.review-label { display: block; font-style: normal; font-size: 12px; font-weight: 600; color: var(--text-faint); margin-bottom: 2px; }
+.unverified { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--warn-text); }
+.footnote { margin-top: 8px; font-size: 13px; color: var(--text-faint); }
+
+/* ---------- Motion ----------
+   New results rise into place one after another. While a search runs, the old ones glide out. */
+.rise {
+  animation: rise 520ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  animation-delay: calc(var(--rise-start) + var(--step, 0) * var(--rise-step));
+}
+@keyframes rise {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: none; }
+}
+.results[aria-busy="true"] > * { animation: settle 260ms ease forwards; pointer-events: none; }
+@keyframes settle { to { opacity: 0.35; transform: translateY(-6px); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .rise, .results[aria-busy="true"] > * { animation: none; }
+  .results[aria-busy="true"] > * { opacity: 0.35; }
+  .spinner { animation-duration: 2.4s; }
+}
+
+/* ---------- Phone ---------- */
+@media (max-width: 600px) {
+  .header-inner { padding: 14px 16px; }
+  .brand-tagline { display: none; }
+  .layout { padding: 16px; gap: 16px; }
+  .search-form { max-width: none; padding: 18px; }
+  .results { flex-basis: 100%; }
+  .results-head h2 { font-size: 22px; }
+  .card { padding: 16px; }
+  .card-title h3 { font-size: 17px; }
+}

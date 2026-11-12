@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="Restaurant recommendations for Bangalore, ranked and explained by AI." />
+    <meta name="color-scheme" content="dark" />
+    <title>Banga-Luru Bytes</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap"
+    />
+    <script type="module" src="/src/main.js"></script>
+  </head>
+  <body>
+    <header class="header">
+      <div class="header-inner">
+        <div class="brand">
+          <div class="logo" aria-hidden="true">BLB</div>
+          <div>
+            <h1 class="brand-name">Banga-Luru Bytes</h1>
+            <span class="brand-tagline">Tell us what you're looking for, and we'll suggest where to eat.</span>
+          </div>
+        </div>
+        <div class="status-pill" id="status" hidden>
+          <span class="status-dot" id="status-dot"></span><span id="status-text"></span>
+        </div>
+      </div>
+    </header>
+
+    <main class="layout">
+      <form class="search-form" id="search-form" novalidate>
+        <h2>Find a place to eat</h2>
+
+        <div class="field">
+          <label class="field-label" for="area">Area in Bangalore</label>
+          <select id="area" class="select" required disabled>
+            <option>Loading…</option>
+          </select>
+        </div>
+
+        <fieldset class="field">
+          <legend class="field-label">Budget for two</legend>
+          <div class="budget-grid" id="budget-grid"></div>
+        </fieldset>
+
+        <div class="field">
+          <label class="field-label" for="cuisine-input">Cuisine</label>
+          <div class="tag-box" id="cuisine-box">
+            <input id="cuisine-input" class="tag-input" list="cuisine-list" placeholder="Any cuisine" autocomplete="off" aria-describedby="cuisine-hint" />
+            <datalist id="cuisine-list"></datalist>
+          </div>
+          <span class="field-hint" id="cuisine-hint">Most popular in Bangalore first, then A to Z. Press Enter to add.</span>
+        </div>
+
+        <div class="field">
+          <label class="field-label" for="dish-input">Dish</label>
+          <div class="tag-box" id="dish-box">
+            <input id="dish-input" class="tag-input" list="dish-list" placeholder="Any dish" autocomplete="off" aria-describedby="dish-hint" />
+            <datalist id="dish-list"></datalist>
+          </div>
+          <span class="field-hint" id="dish-hint">For a great dish, whatever else the restaurant serves.</span>
+        </div>
+
+        <div class="field">
+          <div class="rating-row">
+            <label class="field-label" for="rating">Minimum rating</label>
+            <output class="rating-value" id="rating-value" for="rating">★ 3.5</output>
+          </div>
+          <input id="rating" type="range" min="0" max="5" step="0.1" value="3.5" />
+          <label class="checkbox"><input type="checkbox" id="unrated" /> Include new and unrated restaurants</label>
+        </div>
+
+        <div class="field">
+          <label class="field-label" for="extra">Anything else? <span class="optional">(optional)</span></label>
+          <input id="extra" class="input" maxlength="300" placeholder="For example, family-friendly, quick service" />
+        </div>
+
+        <button type="submit" class="btn-primary" id="submit" disabled>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></svg>
+          Find restaurants
+        </button>
+        <p class="form-status" id="form-status" role="status" aria-live="polite"></p>
+      </form>
+
+      <section class="results" id="results" aria-live="polite" aria-busy="false">
+        <p class="empty-state">
+          <strong>Your restaurant picks will appear here.</strong> Choose an area and what you feel like eating, then press
+          <strong>Find restaurants</strong>.
+        </p>
+      </section>
+    </main>
+  </body>
+</html>

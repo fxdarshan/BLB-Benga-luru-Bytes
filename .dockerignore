@@ -1,0 +1,23 @@
+# Only pyproject.toml, uv.lock, src/ and Doc/problemStatement.md are needed to build the API.
+# Secrets, local data and tooling stay out of the image.
+.env
+.env.*
+.venv/
+venv/
+.git/
+.claude/
+data/
+traces/
+tests/
+graft/
+graphify-out/
+frontend/
+design/
+blb_dark_dining_finder/
+.streamlit/
+app.py
+**/__pycache__/
+.pytest_cache/
+.ruff_cache/
+Doc/
+!Doc/problemStatement.md

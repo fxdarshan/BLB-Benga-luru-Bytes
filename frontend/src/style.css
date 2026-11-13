@@ -243,6 +243,47 @@ input[type="range"] { width: 100%; min-height: 28px; }
 .unverified { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--warn-text); }
 .footnote { margin-top: 8px; font-size: 13px; color: var(--text-faint); }
 
+/* ---------- Hover and selection ----------
+   Ported from the Streamlit app (display.py). What the diner has chosen is shown larger and
+   bold, and anything under the cursor grows and turns bold. Scaling, rather than a bigger
+   font, keeps nearby items from being pushed around. */
+
+/* The chosen area, budget, tags and checkbox. */
+.select { font-size: 16px; font-weight: 700; }
+.select option { font-size: 16px; font-weight: 600; }
+.budget-option[aria-pressed="true"] .budget-name { font-size: 16px; font-weight: 700; }
+.tag { font-size: 14px; font-weight: 700; }
+.checkbox:has(input:checked) .checkbox-text { font-size: 16px; font-weight: 700; color: var(--text); }
+
+/* Transforms need a box, so the two text spans become inline blocks. */
+.checkbox-text, .btn-text { display: inline-block; }
+.budget-name, .checkbox-text, .tag, .btn-text, .select,
+.summary p, .card-title, .card-meta, .badges, .liked {
+  transition: transform 0.12s ease;
+  transform-origin: left center;
+}
+.select, .btn-text { transform-origin: center; }
+
+/* Only on screens with a real pointer, so a tap on a phone doesn't leave things enlarged. */
+@media (hover: hover) {
+  .budget-option:hover .budget-name,
+  .checkbox:hover .checkbox-text,
+  .tag:hover,
+  .btn-primary:hover:not(:disabled) .btn-text,
+  .summary p:hover,
+  .card-title:hover,
+  .card-meta:hover,
+  .badges:hover,
+  .liked:hover { transform: scale(1.08); font-weight: 700; }
+  .select:hover { transform: scale(1.02); border-color: var(--accent); font-weight: 800; }
+  .summary p:hover { transform: scale(1.02); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .budget-name, .checkbox-text, .tag, .btn-text, .select, .summary p,
+  .card-title, .card-meta, .badges, .liked { transition: none; }
+}
+
 /* ---------- Motion ----------
    New results rise into place one after another. While a search runs, the old ones glide out. */
 .rise {

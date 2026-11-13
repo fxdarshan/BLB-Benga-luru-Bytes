@@ -17,6 +17,7 @@
       "name": "blb-api",
       "runtimeExecutable": "uv",
       "runtimeArgs": ["run", "--no-default-groups", "uvicorn", "--factory", "recommender.api:create_app", "--port", "8000"],
+      "env": { "ALLOWED_ORIGINS": "http://localhost:5173" },
       "port": 8000
     },
     {

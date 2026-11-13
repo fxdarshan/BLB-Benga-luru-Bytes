@@ -8,7 +8,14 @@ This plan hosts BLB (Banga-Luru Bytes) with the backend on [Railway](https://rai
 - **Phase 0 must be finished before anything is made public.** It holds one blocker: the dataset licence.
 - Tick the boxes as you go, and record any decision that changes in [Decisions](#decisions).
 
-> **Status (2026-11-12): the code is written; nothing is deployed.** The API, Docker and Railway files, the frontend and the Vercel config are in the repository and tested locally (see each phase). What's left needs your accounts: Phase 0, then creating the Railway and Vercel projects. The Docker image hasn't been built yet, since Docker isn't installed on the development machine, so Railway's first build is its first test.
+> **Status (2026-11-13): deployed and working end to end.**
+>
+> | Part | Address | Where it's managed |
+> | --- | --- | --- |
+> | Frontend | https://blb-frontend.vercel.app | Vercel project `blb-frontend`, Root Directory `frontend`, deploys from `main` on GitHub |
+> | API | https://blb-benga-luru-bytes-production-f4839515.up.railway.app | Railway project `fearless-dedication`, service `BLB-Benga-luru-Bytes` |
+>
+> A search from the Vercel page returns AI-ranked results. **Still open:** the dataset licence, while the GitHub repository and both sites are public (Phase 0); cost limits, monitoring, the rate-limit burst test and rollback practice (Phase 5). Railway's `railway.json` format stops working on 2026-12-01, so run `railway config migrate` before then. The service also has a second, unused address, `blb-benga-luru-bytes-production.up.railway.app`, which can be removed.
 >
 > **Phase 6 of the implementation plan (evaluation) is only partly done.** Its free preparation is complete, but the paid pilot, the judge, the full run and tuning were deferred so deployment could start. Tuning may still change the model or effort settings deployed here.
 
@@ -52,8 +59,8 @@ flowchart LR
 ### Tasks
 
 - [ ] **Resolve the dataset licence.** `ManikaSaini/zomato-restaurant-recommendation` states no licence, and the project's own rules say not to host publicly or publish the data until this is settled ([edge case DEP-01](edge-cases.md#phase-7-deployment), [architecture section 13](architecture.md#13-open-decisions)). Until it is, keep the deployment private: don't share the URL publicly, and use the platforms' access protection where available.
-- [ ] **Put the code in a private GitHub repository.** This repository has no remote yet, and both Railway and Vercel deploy from GitHub. Keep it private while the licence is open. `.gitignore` already keeps out `data/`, `.env` and `traces/`.
-- [ ] **Create the accounts:** Railway (the Hobby plan is $5 a month plus usage) and Vercel (the Hobby plan suits a personal, non-commercial project; check its terms if this becomes commercial).
+- [ ] **Put the code in a private GitHub repository.** Both Railway and Vercel deploy from GitHub. Keep it private while the licence is open. `.gitignore` already keeps out `data/`, `.env` and `traces/`. *The code is at `fxdarshan/BLB-Benga-luru-Bytes`, but that repository is currently **public**.*
+- [x] **Create the accounts:** Railway (the Hobby plan is $5 a month plus usage) and Vercel (the Hobby plan suits a personal, non-commercial project; check its terms if this becomes commercial).
 - [ ] **Check Groq's limits against the expected traffic.** On the free plan the limit is 8,000 tokens a minute. A search now uses about 2,600 input and up to 1,000 output tokens, so only **2 or 3 new searches a minute fit across all users.** Cached repeats are free. Beyond that, Groq returns rate-limit errors and the app falls back to score-ranked results without AI text. Decide whether that's acceptable, or move to a paid Groq tier, and set a spend limit in the Groq console either way.
 - [ ] Agree the decisions in [Decisions](#decisions), especially the frontend stack and how the data reaches Railway.
 
@@ -120,20 +127,20 @@ The fallback, if builds become too slow, is a Railway volume mounted at `/app/da
 - [x] **Copy `Doc/problemStatement.md` into both stages.** `pyproject.toml` names it as the package `readme`, and hatchling fails to install the project without it.
 - [x] Write a `.dockerignore` that leaves out `.env`, `.venv/`, `data/`, `traces/`, `tests/`, `graft/`, `frontend/`, `.git/` and everything in `Doc/` except `problemStatement.md`, so no secret or local file enters the image
 - [x] Add `railway.json` setting the Dockerfile builder, `healthcheckPath` to `/health`, a restart policy for crashes, and watch patterns so that frontend-only commits don't rebuild the backend. Railway then waits for `/health` to return 200 before moving traffic to a new deployment.
-- [ ] Create the Railway project from the GitHub repository and set the variables in [Environment variables](#environment-variables), including `TRUSTED_PROXY_HOPS=1`. Put `GROQ_API_KEY` only in Railway's variables, never in a file.
-- [ ] Generate the Railway domain (`*.up.railway.app`), or attach a custom one such as `api.<your-domain>`
-- [ ] Set `ALLOWED_ORIGINS` once the Vercel address is known in Phase 4
+- [x] Create the Railway project from the GitHub repository and set the variables in [Environment variables](#environment-variables), including `TRUSTED_PROXY_HOPS=1`. Put `GROQ_API_KEY` only in Railway's variables, never in a file.
+- [x] Generate the Railway domain (`*.up.railway.app`), or attach a custom one such as `api.<your-domain>`
+- [x] Set `ALLOWED_ORIGINS` once the Vercel address is known in Phase 4
 
 ### Tests
 
-- [ ] `curl https://<railway-domain>/health` returns 200 with `"ai_ranking": true`
-- [ ] A `POST /recommend` from your computer returns AI-ranked results, and its search line appears in Railway's logs
-- [ ] The build log and runtime logs show no API key
+- [x] `curl https://<railway-domain>/health` returns 200 with `"ai_ranking": true`
+- [x] A `POST /recommend` from your computer returns AI-ranked results, and its search line appears in Railway's logs
+- [x] The build log and runtime logs show no API key
 - [ ] Redeploying with a deliberately broken start leaves the previous deployment serving
 
 ### Exit criteria
 
-- [ ] The API completes a full AI-ranked search at its Railway address
+- [x] The API completes a full AI-ranked search at its Railway address
 - [ ] The health check gates deployments
 
 ## Phase 3: Frontend
@@ -169,22 +176,22 @@ The fallback, if builds become too slow, is a Railway volume mounted at `/app/da
 
 ### Tasks
 
-- [ ] Import the GitHub repository into Vercel with **Root Directory** set to `frontend/`. Vercel detects Vite, with build command `npm run build` and output directory `dist`. Turn on skipping deployments when nothing in the root directory changed, so backend-only commits don't redeploy the frontend.
+- [x] Import the GitHub repository into Vercel with **Root Directory** set to `frontend/`. Vercel detects Vite, with build command `npm run build` and output directory `dist`. Turn on skipping deployments when nothing in the root directory changed, so backend-only commits don't redeploy the frontend.
 - [x] Add `frontend/vercel.json` with security headers, including a Content Security Policy whose `connect-src` allows `https://*.up.railway.app`. **If the API gets a custom domain, change `connect-src` to it**, or the browser will block every call.
-- [ ] Set `VITE_API_BASE_URL` to the Railway address for Production. For Preview, point it at the same API or at a separate Railway environment.
-- [ ] Add the Vercel production domain, and the preview pattern if wanted, to `ALLOWED_ORIGINS` on Railway, then redeploy the backend.
+- [x] Set `VITE_API_BASE_URL` to the Railway address for Production. For Preview, point it at the same API or at a separate Railway environment.
+- [x] Add the Vercel production domain, and the preview pattern if wanted, to `ALLOWED_ORIGINS` on Railway, then redeploy the backend. *Only the production domains are allowed so far; preview URLs would need `ALLOWED_ORIGIN_REGEX`.*
 - [ ] Optionally attach a custom domain, such as `blb.<your-domain>` for the frontend and `api.<your-domain>` for the backend.
 - [ ] Keep access restricted while the licence is open, for example with Vercel's deployment protection.
 
 ### Tests
 
-- [ ] A full search from the Vercel address returns AI-ranked results
-- [ ] The browser console shows no CORS errors
-- [ ] A page opened from an origin not in `ALLOWED_ORIGINS` can't call the API
+- [x] A full search from the Vercel address returns AI-ranked results
+- [x] The browser console shows no CORS errors
+- [x] A page opened from an origin not in `ALLOWED_ORIGINS` can't call the API (its preflight gets `400` with no CORS headers)
 
 ### Exit criteria
 
-- [ ] The hosted page completes a full search, end to end
+- [x] The hosted page completes a full search, end to end
 
 ## Phase 5: Hardening and Launch
 
@@ -203,7 +210,7 @@ The fallback, if builds become too slow, is a Railway volume mounted at `/app/da
 
 These include the exit criteria of the implementation plan's Phase 7.
 
-- [ ] The hosted app completes a full search
+- [x] The hosted app completes a full search
 - [ ] No secret appears in the repository, logs or UI
 - [ ] The search limit works when exceeded
 - [ ] Someone else can follow the README from a fresh checkout

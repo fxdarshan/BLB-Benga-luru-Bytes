@@ -30,6 +30,7 @@ const state = {
   budget: "any",
   aiRanking: null,
   searching: false,
+  area: null,
   cuisines: null,
   dishes: null,
 };
@@ -148,7 +149,8 @@ class TagPicker {
     }
     this.list.replaceChildren(
       ...this.shown.map((option, index) => {
-        const item = el("li", "tag-menu-option", option);
+        const item = el("li", "tag-menu-option");
+        item.append(el("span", "tag-menu-option-text", option));
         item.id = `${id}-${index}`;
         item.dataset.value = option;
         item.setAttribute("role", "option");
@@ -163,7 +165,10 @@ class TagPicker {
   setActive(index, { scroll = true } = {}) {
     this.active = index;
     const items = this.list.querySelectorAll("[role=option]");
-    items.forEach((item, i) => item.setAttribute("aria-selected", String(i === index)));
+    items.forEach((item, i) => {
+      item.setAttribute("aria-selected", String(i === index));
+      item.classList.toggle("active", i === index);
+    });
     const current = items[index];
     if (current) {
       this.input.setAttribute("aria-activedescendant", current.id);
@@ -249,6 +254,122 @@ class TagPicker {
   }
 }
 
+// ---------- Area picker ----------
+// A button with a dropdown list. A native <select> isn't used because its options are drawn by
+// the operating system, which ignores the page's styles, so they can't grow on hover.
+
+class AreaPicker {
+  constructor(button, label, list) {
+    this.button = button;
+    this.label = label;
+    this.list = list;
+    this.options = [];
+    this.active = -1;
+    this.typed = "";
+    this.typedAt = 0;
+    button.addEventListener("click", () => (this.list.hidden ? this.open() : this.close()));
+    button.addEventListener("keydown", (event) => this.onKey(event));
+    list.addEventListener("mousedown", (event) => event.preventDefault());
+    list.addEventListener("click", (event) => {
+      const item = event.target.closest("[role=option]");
+      if (item) this.choose(Number(item.dataset.index));
+    });
+    button.addEventListener("blur", () => this.close());
+  }
+
+  setOptions(options) {
+    this.options = options;
+    this.list.replaceChildren(
+      ...options.map((option, index) => {
+        const item = el("li", "tag-menu-option");
+        item.append(el("span", "tag-menu-option-text", option));
+        item.id = `${this.list.id}-${index}`;
+        item.dataset.index = String(index);
+        item.setAttribute("role", "option");
+        item.addEventListener("mouseenter", () => this.setActive(index, { scroll: false }));
+        return item;
+      }),
+    );
+    this.choose(0, { focus: false });
+    this.button.disabled = false;
+  }
+
+  setUnavailable() {
+    this.button.value = "";
+    this.label.textContent = "Unavailable";
+    this.button.disabled = true;
+  }
+
+  get value() {
+    return this.button.value;
+  }
+
+  open() {
+    if (!this.options.length) return;
+    this.list.hidden = false;
+    this.button.setAttribute("aria-expanded", "true");
+    this.setActive(Math.max(0, this.options.indexOf(this.value)));
+  }
+
+  close() {
+    this.list.hidden = true;
+    this.button.setAttribute("aria-expanded", "false");
+    this.button.removeAttribute("aria-activedescendant");
+  }
+
+  setActive(index, { scroll = true } = {}) {
+    this.active = index;
+    const items = this.list.querySelectorAll("[role=option]");
+    items.forEach((item, i) => item.classList.toggle("active", i === index));
+    const current = items[index];
+    if (!current) return;
+    this.button.setAttribute("aria-activedescendant", current.id);
+    if (scroll) current.scrollIntoView({ block: "nearest" });
+  }
+
+  choose(index, { focus = true } = {}) {
+    const value = this.options[index];
+    if (value === undefined) return;
+    this.button.value = value;
+    this.label.textContent = value;
+    this.list.querySelectorAll("[role=option]").forEach((item, i) => {
+      item.setAttribute("aria-selected", String(i === index));
+    });
+    this.close();
+    if (focus) this.button.focus();
+  }
+
+  onKey(event) {
+    const isOpen = !this.list.hidden;
+    const last = this.options.length - 1;
+    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+      event.preventDefault();
+      if (!isOpen) return this.open();
+      const step = event.key === "ArrowDown" ? 1 : -1;
+      this.setActive(Math.min(last, Math.max(0, this.active + step)));
+    } else if (isOpen && (event.key === "Home" || event.key === "End")) {
+      event.preventDefault();
+      this.setActive(event.key === "Home" ? 0 : last);
+    } else if (isOpen && (event.key === "Enter" || event.key === " ")) {
+      event.preventDefault();
+      this.choose(this.active);
+    } else if (event.key === "Escape" && isOpen) {
+      event.preventDefault();
+      this.close();
+    } else if (event.key.length === 1 && /\S/.test(event.key)) {
+      // Typing letters jumps to the first area that starts with them.
+      const now = Date.now();
+      this.typed = now - this.typedAt > 700 ? event.key : this.typed + event.key;
+      this.typedAt = now;
+      const found = this.options.findIndex((o) => o.toLowerCase().startsWith(this.typed.toLowerCase()));
+      if (found >= 0) {
+        if (!isOpen) this.open();
+        this.setActive(found);
+      }
+    }
+  }
+}
+
 // ---------- Form ----------
 
 function showStatus(text, { busy = false, error = false } = {}) {
@@ -280,9 +401,7 @@ function buildBudgets(budgets) {
 }
 
 function fillForm(options) {
-  const area = $("area");
-  area.replaceChildren(...options.areas.map((name) => new Option(name, name)));
-  area.disabled = false;
+  state.area.setOptions(options.areas);
   buildBudgets(options.budgets);
   state.cuisines.setOptions(options.cuisines);
   state.dishes.setOptions(options.dishes);
@@ -302,7 +421,7 @@ function preferences() {
   state.cuisines.addTyped({ quiet: true });
   state.dishes.addTyped({ quiet: true });
   return {
-    area: $("area").value,
+    area: state.area.value,
     budget: state.budget,
     cuisines: state.cuisines.chosen,
     dishes: state.dishes.chosen,
@@ -444,6 +563,7 @@ function showAiStatus(on) {
 }
 
 async function start() {
+  state.area = new AreaPicker($("area"), $("area-value"), $("area-list"));
   state.cuisines = new TagPicker($("cuisine-box"), $("cuisine-input"), $("cuisine-list"), "cuisine");
   state.dishes = new TagPicker($("dish-box"), $("dish-input"), $("dish-list"), "dish");
   $("rating").addEventListener("input", showRating);
@@ -455,7 +575,7 @@ async function start() {
   try {
     fillForm(await getOptions());
   } catch (error) {
-    $("area").replaceChildren(new Option("Unavailable", ""));
+    state.area.setUnavailable();
     const retry = el("button", "btn-primary", "Try again");
     retry.type = "button";
     retry.addEventListener("click", () => window.location.reload());

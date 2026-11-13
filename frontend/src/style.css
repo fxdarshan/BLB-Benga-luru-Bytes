@@ -155,19 +155,38 @@ svg { flex: none; }
 
 /* The cuisine and dish dropdown, under its box. */
 .tag-box { position: relative; cursor: text; }
+.picker { position: relative; }
+.area-button {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  text-align: left; cursor: pointer;
+}
+.area-button:disabled { cursor: default; opacity: 0.7; }
+.area-button svg { color: var(--text-muted); transition: transform 0.15s ease; }
+.area-button[aria-expanded="true"] svg { transform: rotate(180deg); }
+#area-list [aria-selected="true"] { color: var(--accent-text); }
 .tag-menu {
   position: absolute; z-index: 20; top: calc(100% + 6px); left: 0; right: 0;
-  max-height: 280px; overflow-y: auto; margin: 0; padding: 6px; list-style: none;
+  max-height: 280px; overflow: hidden auto; margin: 0; padding: 6px; list-style: none;
   background: var(--field); border: 1px solid var(--border-field); border-radius: var(--radius-field);
   box-shadow: 0 12px 28px rgba(0, 0, 0, 0.45);
 }
-/* Options are larger and bold, and larger still when highlighted, as in the Streamlit app. */
+/* Options are larger and bold, and the one under the cursor or arrow keys grows and turns
+   bolder, as in the Streamlit app. Scaling the text, rather than the font size, keeps the
+   rows from shifting under the cursor. */
 .tag-menu-option {
   padding: 8px 10px; border-radius: 6px; cursor: pointer;
   font-size: 16px; font-weight: 600; color: var(--text-label);
 }
-.tag-menu-option[aria-selected="true"] {
-  background: var(--accent-soft); color: var(--accent-text); font-size: 18px; font-weight: 800;
+.tag-menu-option-text {
+  display: inline-block; transform-origin: left center; transition: transform 0.12s ease;
+}
+.tag-menu-option.active, .tag-menu-option:hover {
+  background: var(--accent-soft); color: var(--accent-text); font-weight: 800;
+}
+.tag-menu-option.active .tag-menu-option-text,
+.tag-menu-option:hover .tag-menu-option-text { transform: scale(1.15); }
+@media (prefers-reduced-motion: reduce) {
+  .tag-menu-option-text { transition: none; }
 }
 .tag-menu-empty { padding: 8px 10px; font-size: 14px; color: var(--text-faint); }
 
@@ -268,7 +287,6 @@ input[type="range"] { width: 100%; min-height: 28px; }
 
 /* The chosen area, budget, tags and checkbox. */
 .select { font-size: 16px; font-weight: 700; }
-.select option { font-size: 16px; font-weight: 600; }
 .budget-option[aria-pressed="true"] .budget-name { font-size: 16px; font-weight: 700; }
 .tag { font-size: 14px; font-weight: 700; }
 .checkbox:has(input:checked) .checkbox-text { font-size: 16px; font-weight: 700; color: var(--text); }

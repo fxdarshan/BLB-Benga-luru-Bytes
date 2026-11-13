@@ -75,6 +75,10 @@ function notice(text, kind = "info") {
 
 // ---------- Tag pickers for cuisines and dishes ----------
 
+// A text box with a dropdown list, like the Streamlit multiselect. The list opens on click or
+// focus, narrows as the diner types, and adds a choice on click, or with the arrow keys and Enter.
+// A native <datalist> isn't used because Chrome shows it only after typing starts.
+
 class TagPicker {
   constructor(box, input, list, label) {
     this.box = box;
@@ -84,29 +88,123 @@ class TagPicker {
     this.options = [];
     this.byKey = new Map();
     this.chosen = [];
+    this.shown = [];
+    this.active = -1;
     input.addEventListener("keydown", (event) => this.onKey(event));
-    input.addEventListener("change", () => this.addTyped({ quiet: true }));
+    input.addEventListener("input", () => this.open());
+    input.addEventListener("focus", () => this.open());
+    input.addEventListener("click", () => this.open());
+    // A click on the empty part of the box goes to the text box.
+    box.addEventListener("click", (event) => {
+      if (event.target === box) input.focus();
+    });
+    // Keep focus in the text box while an option is clicked.
+    list.addEventListener("mousedown", (event) => event.preventDefault());
+    list.addEventListener("click", (event) => {
+      const item = event.target.closest("[role=option]");
+      if (item && item.dataset.value) this.choose(item.dataset.value);
+    });
+    box.addEventListener("focusout", (event) => {
+      if (!box.contains(event.relatedTarget)) {
+        this.close();
+        this.addTyped({ quiet: true });
+      }
+    });
   }
 
   setOptions(options) {
     this.options = options;
     this.byKey = new Map(options.map((o) => [o.toLowerCase(), o]));
+  }
+
+  open() {
+    const typed = this.input.value.trim().toLowerCase();
+    // Keep the menu order (most popular first), with names that start with the text first.
+    const left = this.options.filter((o) => !this.chosen.includes(o));
+    const matches = typed ? left.filter((o) => o.toLowerCase().includes(typed)) : left;
+    this.shown = typed
+      ? [...matches.filter((o) => o.toLowerCase().startsWith(typed)), ...matches.filter((o) => !o.toLowerCase().startsWith(typed))]
+      : matches;
+    this.active = typed && this.shown.length ? 0 : -1;
+    this.renderList();
+    this.list.hidden = false;
+    this.input.setAttribute("aria-expanded", "true");
+  }
+
+  close() {
+    this.list.hidden = true;
+    this.active = -1;
+    this.input.setAttribute("aria-expanded", "false");
+    this.input.removeAttribute("aria-activedescendant");
+  }
+
+  renderList() {
+    const id = this.list.id;
+    if (!this.shown.length) {
+      const empty = el("li", "tag-menu-empty", this.options.length ? `No matching ${this.label}` : "Loading…");
+      this.list.replaceChildren(empty);
+      this.input.removeAttribute("aria-activedescendant");
+      return;
+    }
     this.list.replaceChildren(
-      ...options.map((option) => {
-        const node = document.createElement("option");
-        node.value = option;
-        return node;
+      ...this.shown.map((option, index) => {
+        const item = el("li", "tag-menu-option", option);
+        item.id = `${id}-${index}`;
+        item.dataset.value = option;
+        item.setAttribute("role", "option");
+        item.setAttribute("aria-selected", String(index === this.active));
+        item.addEventListener("mouseenter", () => this.setActive(index, { scroll: false }));
+        return item;
       }),
     );
+    this.setActive(this.active);
+  }
+
+  setActive(index, { scroll = true } = {}) {
+    this.active = index;
+    const items = this.list.querySelectorAll("[role=option]");
+    items.forEach((item, i) => item.setAttribute("aria-selected", String(i === index)));
+    const current = items[index];
+    if (current) {
+      this.input.setAttribute("aria-activedescendant", current.id);
+      if (scroll) current.scrollIntoView({ block: "nearest" });
+    } else {
+      this.input.removeAttribute("aria-activedescendant");
+    }
+  }
+
+  choose(value) {
+    if (!this.chosen.includes(value)) {
+      this.chosen.push(value);
+      this.render();
+    }
+    this.input.value = "";
+    showStatus("");
+    this.open();
   }
 
   onKey(event) {
-    if (event.key === "Enter") {
-      // Enter adds the typed choice instead of submitting the form, unless the box is empty.
-      if (this.input.value.trim()) {
+    const isOpen = !this.list.hidden;
+    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+      event.preventDefault();
+      if (!isOpen) return this.open();
+      if (!this.shown.length) return;
+      const step = event.key === "ArrowDown" ? 1 : -1;
+      const next = this.active < 0 ? (step > 0 ? 0 : this.shown.length - 1) : (this.active + step + this.shown.length) % this.shown.length;
+      this.setActive(next);
+    } else if (event.key === "Enter") {
+      // Enter adds the highlighted or typed choice instead of submitting the form, unless the
+      // box is empty and nothing is highlighted.
+      if (isOpen && this.active >= 0) {
+        event.preventDefault();
+        this.choose(this.shown[this.active]);
+      } else if (this.input.value.trim()) {
         event.preventDefault();
         this.addTyped({ quiet: false });
       }
+    } else if (event.key === "Escape" && isOpen) {
+      event.preventDefault();
+      this.close();
     } else if (event.key === "Backspace" && !this.input.value && this.chosen.length) {
       this.remove(this.chosen[this.chosen.length - 1]);
     }
@@ -132,6 +230,7 @@ class TagPicker {
     this.chosen = this.chosen.filter((v) => v !== value);
     this.render();
     this.input.focus();
+    if (!this.list.hidden) this.open();
   }
 
   render() {

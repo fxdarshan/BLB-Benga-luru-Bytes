@@ -50,8 +50,8 @@
         <div class="field">
           <label class="field-label" for="cuisine-input">Cuisine</label>
           <div class="tag-box" id="cuisine-box">
-            <input id="cuisine-input" class="tag-input" list="cuisine-list" placeholder="Any cuisine" autocomplete="off" aria-describedby="cuisine-hint" />
-            <datalist id="cuisine-list"></datalist>
+            <input id="cuisine-input" class="tag-input" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="cuisine-list" placeholder="Any cuisine" autocomplete="off" aria-describedby="cuisine-hint" />
+            <ul id="cuisine-list" class="tag-menu" role="listbox" aria-label="Cuisines" hidden></ul>
           </div>
           <span class="field-hint" id="cuisine-hint">Most popular in Bangalore first, then A to Z. Press Enter to add.</span>
         </div>
@@ -59,8 +59,8 @@
         <div class="field">
           <label class="field-label" for="dish-input">Dish</label>
           <div class="tag-box" id="dish-box">
-            <input id="dish-input" class="tag-input" list="dish-list" placeholder="Any dish" autocomplete="off" aria-describedby="dish-hint" />
-            <datalist id="dish-list"></datalist>
+            <input id="dish-input" class="tag-input" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="dish-list" placeholder="Any dish" autocomplete="off" aria-describedby="dish-hint" />
+            <ul id="dish-list" class="tag-menu" role="listbox" aria-label="Dishes" hidden></ul>
           </div>
           <span class="field-hint" id="dish-hint">For a great dish, whatever else the restaurant serves.</span>
         </div>

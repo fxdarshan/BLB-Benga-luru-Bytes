@@ -153,6 +153,24 @@ svg { flex: none; }
 }
 .tag-input::placeholder { color: var(--text-faint); }
 
+/* The cuisine and dish dropdown, under its box. */
+.tag-box { position: relative; cursor: text; }
+.tag-menu {
+  position: absolute; z-index: 20; top: calc(100% + 6px); left: 0; right: 0;
+  max-height: 280px; overflow-y: auto; margin: 0; padding: 6px; list-style: none;
+  background: var(--field); border: 1px solid var(--border-field); border-radius: var(--radius-field);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.45);
+}
+/* Options are larger and bold, and larger still when highlighted, as in the Streamlit app. */
+.tag-menu-option {
+  padding: 8px 10px; border-radius: 6px; cursor: pointer;
+  font-size: 16px; font-weight: 600; color: var(--text-label);
+}
+.tag-menu-option[aria-selected="true"] {
+  background: var(--accent-soft); color: var(--accent-text); font-size: 18px; font-weight: 800;
+}
+.tag-menu-empty { padding: 8px 10px; font-size: 14px; color: var(--text-faint); }
+
 .rating-row { display: flex; justify-content: space-between; align-items: baseline; }
 .rating-value { font-size: 15px; font-weight: 700; color: var(--accent-text); }
 input[type="range"], input[type="checkbox"] { accent-color: var(--accent); }

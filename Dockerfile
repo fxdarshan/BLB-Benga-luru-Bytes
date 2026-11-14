@@ -13,7 +13,11 @@ COPY pyproject.toml uv.lock ./
 # Hatchling needs the readme named in pyproject.toml to install the project.
 COPY Doc/problemStatement.md Doc/
 RUN uv sync --locked --no-default-groups --group ingest --no-install-project
-COPY src/ src/
+# Only the modules ingestion uses, so a change to the API's code keeps this layer cached and
+# doesn't download the dataset again. tests/test_dockerfile.py checks this list stays complete.
+COPY src/recommender/__init__.py src/recommender/ingest.py src/recommender/cleaning.py \
+     src/recommender/config.py src/recommender/cuisines.py src/recommender/dishes.py \
+     src/recommender/models.py src/recommender/
 RUN uv sync --locked --no-default-groups --group ingest \
  && uv run --no-sync python -m recommender.ingest
 

@@ -99,7 +99,7 @@ uv run streamlit run app.py
 
 | Endpoint | What it returns |
 | --- | --- |
-| `GET /health` | `{"status": "ok", "build_id": ..., "ai_ranking": true}`, or 503 if the data didn't load |
+| `GET /health` | `{"status": "ok", "build_id": ..., "ai_ranking": true, "last_ai_call": {...}}`, or 503 if the data didn't load. `ai_ranking` means a key is set; `last_ai_call` says whether the AI works: `ok`, the failure `reason` (such as `authentication` for a wrong key), the model and when, or null before the first call. |
 | `GET /options` | Areas, cuisines and dishes in menu order, the budget choices, and form defaults |
 | `POST /recommend` | Display-ready results for a search. 422 for an invalid search, 429 over the rate limit, 503 without data. `ai_busy` is true when the AI was skipped because the provider's per-minute limit was reached. |
 | `POST /shortlist` | The same search ranked by rating alone, at once, with no AI call. Same body as `/recommend`, plus `ai_pending`: true when `/recommend` will have the AI rank it. 60 a minute per client, apart from searches, and not counted in `/stats`. |
@@ -131,6 +131,8 @@ npm test
 ```
 
 The page itself is split into `main.js` (wiring), `dom.js` (icons and element helpers), `pickers.js` (the dropdowns), `search-logic.js` (pure rules) and the smaller modules beside them. Check the whole page in a browser against the local API too.
+
+**Uptime:** [`.github/workflows/uptime.yml`](.github/workflows/uptime.yml) checks the site and `/health` every 15 minutes. If either is down for three tries a minute apart, it opens an issue labelled `uptime`, which GitHub emails you, and closes it once both are back. It never fails, so it can't hold up a deploy. GitHub pauses scheduled workflows in a public repository after 60 days without a commit. For error alerts from inside the API, an error tracker such as Sentry needs an account of your own.
 
 **CI:** [`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs the lint, the formatting check, the tests, the frontend tests and the frontend build on every pull request and every push to `main`. Railway deploys the API only after it passes on the commit.
 

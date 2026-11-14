@@ -363,7 +363,10 @@ def create_app(
             {
                 "status": "ok",
                 "build_id": current.repository.metadata.build_id,
+                # True when an AI key is set. last_ai_call says whether the AI actually works:
+                # how the last call went, or null before the first one.
                 "ai_ranking": current.llm_client is not None,
+                "last_ai_call": current.last_ai_call(),
             }
         )
 

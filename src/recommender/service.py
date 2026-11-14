@@ -116,6 +116,8 @@ class RecommendationService:
         self._budget_lock = threading.Lock()
         self._budget_day = ""
         self._tokens_today = 0
+        # How the last LLM call went, for /health: None until the first call.
+        self._last_ai: dict[str, Any] | None = None
 
     def cache_key(self, preferences: Preferences) -> str:
         """Identify a search. Changing the data, model, effort or prompt gives a new key."""
@@ -167,6 +169,20 @@ class RecommendationService:
         return RecommendationResult(
             results=results, relaxations=selection.relaxations, diagnostics=base
         )
+
+    def last_ai_call(self) -> dict[str, Any] | None:
+        """How the last LLM call went: ok or the failure reason, the model and when. None before
+        the first call. A key that is set but wrong shows here as "authentication"."""
+        return dict(self._last_ai) if self._last_ai else None
+
+    def _note_ai_call(self, reason: str | None, call: CallDetails | None) -> None:
+        self._last_ai = {
+            "ok": reason is None,
+            "reason": reason,
+            "model": call.served_model if call else None,
+            "fallback_model_used": bool(call and call.fallback_model_used),
+            "at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(self._clock())),
+        }
 
     def tokens_used_today(self) -> int:
         """LLM tokens used so far this UTC day, counted only in this process."""
@@ -268,13 +284,16 @@ class RecommendationService:
             reply = self.llm_client.rank(SYSTEM_PROMPT, prompt.user_message)
         except LLMUnavailable as error:
             self._spend(error.details)
+            self._note_ai_call(error.reason, error.details)
             details = self._with_call(base, sent, error.details)
             return self._score_ranked(selection, error.reason, details)
         except Exception as error:  # noqa: BLE001 - a search must never show a stack trace
             logger.exception("Unexpected error during LLM ranking: %s", type(error).__name__)
+            self._note_ai_call(FAILURE_UNEXPECTED, None)
             return self._score_ranked(selection, FAILURE_UNEXPECTED, self._with_call(base, sent))
 
         self._spend(reply.details)
+        self._note_ai_call(None, reply.details)
         validated = validate_ranking(
             reply.ranking,
             prompt.candidates_by_alias,

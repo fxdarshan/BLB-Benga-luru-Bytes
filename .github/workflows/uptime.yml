@@ -1,0 +1,70 @@
+# Checks the site and the API every 15 minutes. When either stays down for three tries a minute
+# apart, it opens an issue labelled "uptime", which GitHub emails to the repository's owner, and
+# it closes that issue once both are back.
+#
+# This workflow never fails: Railway's Wait for CI skips a deploy when a workflow run on the
+# commit fails, and a scheduled run belongs to the latest commit on main.
+# GitHub pauses scheduled workflows in a public repository after 60 days without a commit.
+name: Uptime
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+
+permissions:
+  issues: write
+
+concurrency:
+  group: uptime
+  cancel-in-progress: false
+
+jobs:
+  check:
+    name: Site and API are up
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      SITE: https://blb-frontend.vercel.app
+      API: https://blb-benga-luru-bytes-production-f4839515.up.railway.app/health
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - name: Check, and open or close the uptime issue
+        run: |
+          check() {
+            # Three tries a minute apart, so a deploy's few seconds of downtime don't count.
+            for attempt in 1 2 3; do
+              code=$(curl -s -o /dev/null -m 20 -w "%{http_code}" "$1" || true)
+              if [ "$code" = "200" ]; then echo "up"; return; fi
+              [ "$attempt" -lt 3 ] && sleep 60
+            done
+            echo "down (HTTP $code)"
+          }
+          site=$(check "$SITE")
+          api=$(check "$API")
+          echo "Site: $site"
+          echo "API: $api"
+
+          gh label create uptime --color d73a4a --description "The site or API is down" 2>/dev/null || true
+          open=$(gh issue list --label uptime --state open --json number --jq '.[0].number' || true)
+
+          if [ "$site" = "up" ] && [ "$api" = "up" ]; then
+            if [ -n "$open" ]; then
+              gh issue close "$open" --comment "Both are back up as of $(date -u '+%Y-%m-%d %H:%M UTC')." || true
+            fi
+            exit 0
+          fi
+
+          body="Checked at $(date -u '+%Y-%m-%d %H:%M UTC').
+
+          - Site ($SITE): $site
+          - API ($API): $api
+
+          Railway's logs and deployments are the first place to look. This issue closes itself once both are up."
+          if [ -n "$open" ]; then
+            gh issue comment "$open" --body "$body" || true
+          else
+            gh issue create --title "BLB is down" --label uptime --body "$body" || true
+          fi
+          exit 0

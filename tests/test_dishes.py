@@ -13,8 +13,8 @@ from recommender.dishes import (
     is_dish,
     offered_dishes,
 )
-from recommender.display import matched_dishes, result_card, search_summary
-from recommender.models import Candidate, Preferences, RankedResult
+from recommender.display import matched_dishes, search_summary_parts
+from recommender.models import Preferences
 from recommender.prompts import MAX_DISHES_PER_CANDIDATE, build_prompt
 from recommender.service import RecommendationService
 
@@ -33,10 +33,6 @@ def search(repository, **preferences):
 
 def ids(selection):
     return [c.restaurant.restaurant_id for c in selection.candidates]
-
-
-def card_for(restaurant, chosen=()):
-    return result_card(1, RankedResult(Candidate(restaurant, 4.0, 0, True)), "MG Road", chosen)
 
 
 # The dish list
@@ -173,19 +169,16 @@ def test_dishes_are_part_of_the_cache_key():
     assert reordered == service.cache_key(Preferences(area="MG Road", dishes=("Fries", "Pizza")))
 
 
-def test_card_shows_the_matching_dishes():
+def test_matching_dishes_are_listed_from_liked_dishes_and_labels():
     restaurant = make_restaurant(
         dishes=["Chicken Biryani", "Pasta", "Mutton Biryani"], cuisines=["Biryani", "Mughlai"]
     )
     expected = ["Chicken Biryani", "Mutton Biryani", "Biryani"]
     assert matched_dishes(restaurant, ["Biryani"]) == expected
-    assert "Liked for: Chicken Biryani, Mutton Biryani, Biryani" in card_for(
-        restaurant, ["Biryani"]
-    )
-    assert "Liked for" not in card_for(restaurant)
+    assert matched_dishes(restaurant, []) == []
 
 
 def test_search_summary_lists_chosen_dishes():
     bands = make_metadata().budget_bands
-    summary = search_summary(Preferences(area="BTM", dishes=("Pizza", "Fries")), bands)
-    assert "Pizza, Fries" in summary
+    parts = search_summary_parts(Preferences(area="BTM", dishes=("Pizza", "Fries")), bands)
+    assert "Pizza, Fries" in parts

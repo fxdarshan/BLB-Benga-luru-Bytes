@@ -28,15 +28,10 @@ ingest = [
     "ftfy",
     "pandas",
 ]
-# The local Streamlit app: `uv run streamlit run app.py`.
-ui = [
-    "streamlit",
-]
-
 [tool.uv]
 # Installed locally by default, so every command works as before. The server image leaves
 # them out with `uv sync --no-default-groups`.
-default-groups = ["dev", "ingest", "ui"]
+default-groups = ["dev", "ingest"]
 
 [build-system]
 requires = ["hatchling"]

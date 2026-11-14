@@ -2,14 +2,7 @@
 
 AI-powered restaurant recommendations for Bangalore. A diner picks an area, budget, cuisines, dishes and a minimum rating, and adds anything else in their own words. The app shortlists matching restaurants from a Zomato dataset, and an LLM ranks the shortlist and explains each pick. Facts on each card always come from the dataset, never from the LLM.
 
-There are two ways to use it:
-
-| | What it is | Where it runs |
-| --- | --- | --- |
-| **Web app** | A FastAPI backend (`src/recommender/api.py`) and a static frontend (`frontend/`) | Railway and Vercel, or locally |
-| **Streamlit app** | `app.py`, the original single-program version | Locally |
-
-Both use the same search code in `src/recommender/`.
+It's a web app: a FastAPI backend (`src/recommender/api.py`) on Railway and a static frontend (`frontend/`) on Vercel, both of which also run locally. The search code is in `src/recommender/`. The first version was a single Streamlit program, `app.py`; it was removed on 2026-11-14, once the web app did everything it did and more.
 
 **Live:** https://blb-frontend.vercel.app (API: https://blb-benga-luru-bytes-production-f4839515.up.railway.app)
 
@@ -66,7 +59,7 @@ uv run python -m recommender.ingest
 
 This writes `data/restaurants.parquet` and `data/metadata.json`. The dataset revision is pinned, so every build gives the same data.
 
-`uv sync` installs every dependency group: the API's own dependencies, plus `ingest` (for building the data), `ui` (Streamlit) and `dev` (tests). The server image installs only the API's.
+`uv sync` installs every dependency group: the API's own dependencies, plus `ingest` (for building the data) and `dev` (tests). The server image installs only the API's.
 
 ## Run Locally
 
@@ -88,12 +81,6 @@ npm run dev
 ```
 
 Open http://localhost:5173. `ALLOWED_ORIGINS` in `.env` must include `http://localhost:5173`, as the example does.
-
-### Streamlit app
-
-```bash
-uv run streamlit run app.py
-```
 
 ## API
 
@@ -192,14 +179,14 @@ npm run iac:apply
 
 | Variable | Used by | Default | Notes |
 | --- | --- | --- | --- |
-| `LLM_PROVIDER` | API, Streamlit | `groq` | Or `anthropic` |
-| `GROQ_API_KEY`, `ANTHROPIC_API_KEY` | API, Streamlit | | Secret. Only the chosen provider's key is needed. |
-| `LLM_MODEL` | API, Streamlit | Provider default | `openai/gpt-oss-120b` for Groq |
-| `LLM_FALLBACK_MODEL` | API, Streamlit | `openai/gpt-oss-20b` for Groq | Tried once when the main model hits its per-minute limit. `none` turns it off. Groq only: Claude has its own fallback. |
-| `LLM_DAILY_TOKEN_LIMIT` | API, Streamlit | `0` (no cap) | AI tokens allowed per UTC day; after that, results are ranked by score until midnight UTC. Counted in memory, so a restart starts the count again. Today's use is in `/stats` as `ai_budget`. |
-| `LLM_EFFORT` | API, Streamlit | `low` | |
-| `LLM_TIMEOUT_SECONDS` | API, Streamlit | `45` | |
-| `MAX_CANDIDATES`, `MAX_RESULTS` | API, Streamlit | `8`, `5` | |
+| `LLM_PROVIDER` | API | `groq` | Or `anthropic` |
+| `GROQ_API_KEY`, `ANTHROPIC_API_KEY` | API | | Secret. Only the chosen provider's key is needed. |
+| `LLM_MODEL` | API | Provider default | `openai/gpt-oss-120b` for Groq |
+| `LLM_FALLBACK_MODEL` | API | `openai/gpt-oss-20b` for Groq | Tried once when the main model hits its per-minute limit. `none` turns it off. Groq only: Claude has its own fallback. |
+| `LLM_DAILY_TOKEN_LIMIT` | API | `0` (no cap) | AI tokens allowed per UTC day; after that, results are ranked by score until midnight UTC. Counted in memory, so a restart starts the count again. Today's use is in `/stats` as `ai_budget`. |
+| `LLM_EFFORT` | API | `low` | |
+| `LLM_TIMEOUT_SECONDS` | API | `45` | |
+| `MAX_CANDIDATES`, `MAX_RESULTS` | API | `8`, `5` | |
 | `DATA_DIR` | All | `./data` | |
 | `ALLOWED_ORIGINS` | API | None | Comma-separated web origins allowed to call the API |
 | `ALLOWED_ORIGIN_REGEX` | API | None | Optional pattern, for preview deployments |

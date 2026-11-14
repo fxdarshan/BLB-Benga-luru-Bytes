@@ -14,8 +14,6 @@ graphify-out/
 frontend/
 design/
 blb_dark_dining_finder/
-.streamlit/
-app.py
 **/__pycache__/
 .pytest_cache/
 .ruff_cache/

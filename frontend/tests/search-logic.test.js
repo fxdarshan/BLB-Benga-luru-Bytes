@@ -113,3 +113,30 @@ test("shortlist keys and directions links", () => {
     "https://www.google.com/maps/search/?api=1&query=Jose's%20Mess%2C%20BTM%2C%20Bangalore",
   );
 });
+
+test("an empty search offers ways to widen it, from what it asked for", async () => {
+  const { loosenOptions } = await import("../src/search-logic.js");
+  const areas = ["BTM", "Koramangala 4th Block", "Koramangala 5th Block"];
+  const search = {
+    ...defaultSearch("Koramangala 5th Block", DEFAULT),
+    budget: "high",
+    cuisines: ["Thai"],
+    dishes: ["Momos"],
+    min_rating: 4.5,
+  };
+  const options = loosenOptions(search, areas);
+  assert.deepEqual(
+    options.map((o) => o.label),
+    ["Without Momos", "Any cuisine", "Any budget", "Rated 3.5+", "Include new places", "Try Koramangala 4th Block"],
+  );
+  assert.deepEqual(options.at(-1).change, { area: "Koramangala 4th Block" });
+  assert.deepEqual(options[3].change, { min_rating: 3.5 });
+});
+
+test("a plain search offers only what still applies", async () => {
+  const { loosenOptions } = await import("../src/search-logic.js");
+  const plain = { ...defaultSearch("BTM", DEFAULT), include_unrated: true, min_rating: 3 };
+  assert.deepEqual(loosenOptions(plain, ["BTM", "HSR"]), []);
+  const twoDishes = { ...defaultSearch("BTM", DEFAULT), dishes: ["Pizza", "Momos"] };
+  assert.equal(loosenOptions(twoDishes, ["BTM"])[0].label, "Any dish");
+});

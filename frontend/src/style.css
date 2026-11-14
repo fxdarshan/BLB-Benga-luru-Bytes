@@ -343,6 +343,18 @@ input[type="range"] { width: 100%; min-height: 28px; }
 .empty-state { color: var(--text-muted); padding-top: 8px; }
 .empty-state strong { color: var(--text); }
 .results-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px; }
+.results-bar { display: flex; flex-direction: column; gap: 16px; }
+.results-bar-marker { height: 0; margin-bottom: -16px; }
+/* On a wide screen the bar stays at the top while the list scrolls under it. */
+@media (min-width: 901px) {
+  .results-bar {
+    position: sticky; top: 0; z-index: 5; gap: 10px;
+    margin: 0 -16px; padding: 12px 16px; border-radius: 0 0 14px 14px;
+    background: var(--bg); transition: box-shadow 0.2s, padding 0.2s;
+  }
+  .results-bar.stuck { box-shadow: 0 10px 18px -12px var(--shadow); border-bottom: 1px solid var(--rank); padding-block: 10px; }
+  .results-bar.stuck .results-head h2 { font-size: 20px; }
+}
 .results-head h2 { font-size: 26px; font-weight: 600; }
 .count { font-size: 13px; color: var(--text-muted); }
 

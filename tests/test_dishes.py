@@ -14,7 +14,7 @@ from recommender.dishes import (
     offered_dishes,
 )
 from recommender.display import matched_dishes, search_summary_parts
-from recommender.models import Candidate, Preferences, RankedResult
+from recommender.models import Preferences
 from recommender.prompts import MAX_DISHES_PER_CANDIDATE, build_prompt
 from recommender.service import RecommendationService
 

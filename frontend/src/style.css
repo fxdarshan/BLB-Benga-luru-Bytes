@@ -600,6 +600,9 @@ input[type="range"] { width: 100%; min-height: 28px; }
 .saved-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
 .saved-head h2 { font-size: 20px; }
 #saved-body { display: flex; flex-direction: column; gap: 14px; }
+.saved-buttons { display: flex; flex-wrap: wrap; gap: 10px; }
+.saved-buttons { align-items: center; }
+.saved-buttons .btn-primary { height: auto; min-height: 44px; padding: 8px 18px; font-size: 15px; }
 .table-wrap { overflow-x: auto; }
 .compare { width: 100%; border-collapse: collapse; font-size: 14px; }
 .compare th {

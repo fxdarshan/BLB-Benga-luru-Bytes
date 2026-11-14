@@ -31,7 +31,7 @@ This plan hosts BLB (Banga-Luru Bytes) with the backend on [Railway](https://rai
 | --- | --- | --- | --- |
 | Backend | Railway | A small HTTP API (FastAPI) around the existing `RecommendationService` | To build. The search, LLM ranking, validation, cache and logging are reused unchanged. |
 | Frontend | Vercel | A static web page that calls the API and draws the results in the dark theme | To build, starting from `design/code.html` |
-| Streamlit app | Your computer | `app.py`, as today | Kept for local use. It shares the same service code. |
+| Streamlit app | Your computer | `app.py`, as today | Kept for local use at first; removed in Phase 7 once the web app replaced it. |
 
 The split is possible because `service.py` has no Streamlit imports by design ("so other clients can reuse it"). The API is a thin layer over it.
 
@@ -272,6 +272,7 @@ These include the exit criteria of the implementation plan's Phase 7.
 - [x] **Instant results:** `POST /shortlist` returns the search ranked by score in milliseconds. The page shows it under a note that the AI is ranking, then swaps in the AI's picks; if the AI request fails, the shortlist stays with a Try again button
 - [x] **Fallback model:** on a Groq rate limit, the ranking is retried once on `openai/gpt-oss-20b` (`LLM_FALLBACK_MODEL`), which Groq limits separately
 - [x] **Shared calls:** identical searches that arrive together wait for one LLM call and share its result
+- [x] **Streamlit app removed:** `app.py`, `.streamlit/`, its tests and the `ui` dependency group are gone, and `display.py` keeps only the plain-text helpers the API uses (400 lines to 71). One UI to maintain
 - [x] **Smarter free text:** "Anything else?" also matches related words and plurals when picking the shortlist, which roughly doubled matches for "quiet place to work" (78 to 166 in Indiranagar), "rooftop" (14 to 42) and "healthy" (41 to 128). Embeddings wait for the evaluation
 - [x] **Monitoring:** `/health` adds `last_ai_call` (ok or the failure reason, model and time), and the `Uptime` workflow opens and closes a GitHub issue when the site or API goes down and comes back
 - [x] **Frontend split and tested:** `main.js` went from 1,364 lines to 896, with `dom.js`, `pickers.js` and `search-logic.js` beside it; 16 unit tests run with `npm test` in CI
@@ -498,7 +499,7 @@ All written.
 | Hugging Face is down during a build | The build fails | Railway keeps the previous deployment. Switch to a volume if this recurs. |
 | A wrong `ALLOWED_ORIGINS` value | The page can't reach the API | Check the browser console after each change of domain |
 | Abuse of the public API | Groq spend, or the limit used up | Per-IP rate limit, Groq spend limit, Railway usage limit |
-| The new frontend drifts from the Streamlit UI | Two UIs to maintain | Treat the web frontend as the main UI once launched, and keep Streamlit for local development only |
+| The new frontend drifts from the Streamlit UI | Two UIs to maintain | Treat the web frontend as the main UI once launched. *Done: the Streamlit app was removed in Phase 7.* |
 
 ## Sources
 

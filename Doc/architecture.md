@@ -2,6 +2,8 @@
 
 > Requirements: [problemStatement.md](problemStatement.md) | Evaluation: [eval.md](eval.md)
 
+> **Since 2026-11-14 the app is the web app only:** a FastAPI backend on Railway and a static frontend on Vercel ([deployment plan](deployment-plan.md)). The Streamlit UI this document describes was removed; the search, LLM ranking, validation and cache it describes are unchanged.
+
 ## 1. Summary
 
 The app takes a user's restaurant preferences, narrows a real Zomato dataset to a short list of matching restaurants, and asks an LLM to rank that list and explain each choice.

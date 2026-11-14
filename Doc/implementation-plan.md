@@ -2,6 +2,8 @@
 
 > Requirements: [problemStatement.md](problemStatement.md) | Design: [architecture.md](architecture.md) | Scenarios: [edge-cases.md](edge-cases.md) | Evaluation: [eval.md](eval.md)
 
+> **Since 2026-11-14 the app is the web app only:** a FastAPI backend on Railway and a static frontend on Vercel ([deployment plan](deployment-plan.md)). The Streamlit UI these phases build was removed; the search, LLM ranking, validation and cache it describes are unchanged.
+
 This plan turns the architecture into seven phases, matching the milestones in [architecture.md section 14](architecture.md#14-implementation-order). The design details live in that document, so each phase links to the relevant section rather than repeating it.
 
 ## How to Use This Plan

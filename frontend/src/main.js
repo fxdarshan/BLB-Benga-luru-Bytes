@@ -788,8 +788,15 @@ function reducedMotion() {
 
 /** Change the page with a short cross-fade where the browser supports it. */
 function swap(change) {
-  if (document.startViewTransition && !reducedMotion()) document.startViewTransition(change);
-  else change();
+  if (!document.startViewTransition || reducedMotion() || document.hidden) {
+    change();
+    return;
+  }
+  // The browser cancels the fade if the tab is hidden mid-way. The change still applies, so the
+  // cancellation needs no handling beyond keeping it out of the console.
+  const transition = document.startViewTransition(change);
+  transition.ready.catch(() => {});
+  transition.finished.catch(() => {});
 }
 
 // ---------- Light and dark theme ----------

@@ -102,7 +102,7 @@ uv run streamlit run app.py
 | `GET /options` | Areas, cuisines and dishes in menu order, the budget choices, and form defaults |
 | `POST /recommend` | Display-ready results for a search. 422 for an invalid search, 429 over the rate limit, 503 without data. `ai_busy` is true when the AI was skipped because the provider's per-minute limit was reached. |
 | `POST /feedback` | Records a thumbs up or down on one result's explanation: `{"restaurant", "rank", "helpful", "ai_ranked"}`. 204, or 429 over 30 a minute per client. |
-| `GET /stats` | Counts since the server started: searches, AI-ranked searches, cache hits, fallbacks by reason, top areas, cuisines and dishes, budgets, and feedback. Nothing personal. |
+| `GET /stats` | Counts since the store was created: searches, AI-ranked searches, cache hits, fallbacks by reason, top areas, cuisines and dishes, budgets, and feedback. Nothing personal. `storage` says whether they're kept in a file (`persistent`, so they survive restarts) or in memory. |
 
 The full contract is in the [deployment plan](Doc/deployment-plan.md#api-contract). All text is plain: the frontend sets it with `textContent`, so dataset, review and LLM text always displays literally.
 
@@ -120,7 +120,15 @@ No test calls a paid API. Two live tests run only with `RUN_LIVE_TESTS=1`.
 
 The frontend has no test suite. Check it with `npm run build` and in a browser against the local API.
 
-Usage counts are at `GET /stats` on the API. Feedback lines are in the API log; on Railway, run `railway logs` and look for `feedback`.
+**CI:** [`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs the lint, the formatting check, the tests and the frontend build on every pull request and every push to `main`. Railway deploys the API only after it passes on the commit.
+
+**Usage counts and feedback** are kept in a SQLite file in `STATE_DIR`, so they survive restarts and deploys (in memory when it's unset, as locally). The counts are at `GET /stats` on the API. To export the feedback as CSV for the evaluation:
+
+```bash
+uv run python -m recommender.usage_store /app/state/blb.sqlite3 > feedback.csv
+```
+
+On Railway, run it inside the service with `railway ssh`. Each piece of feedback is also written to the API log as a `feedback {...}` line.
 
 ## Evaluate
 
@@ -140,9 +148,27 @@ Paid runs need a spending cap. See [Phase 6 of the implementation plan](Doc/impl
 
 The [deployment plan](Doc/deployment-plan.md) has the full steps. In short:
 
-1. **Railway (API):** deploy from GitHub. `railway.json` builds the `Dockerfile`, which builds `data/` during the build and checks `/health` before switching traffic. Set `GROQ_API_KEY`, `ALLOWED_ORIGINS` and `TRUSTED_PROXY_HOPS=1`.
+1. **Railway (API):** deploy from GitHub. The `Dockerfile` builds `data/` during the build. Set `GROQ_API_KEY`, `ALLOWED_ORIGINS` and `TRUSTED_PROXY_HOPS=1` as variables in Railway.
 2. **Vercel (frontend):** import the repository with Root Directory `frontend/`, and set `VITE_API_BASE_URL` to the Railway address.
 3. Add the Vercel address to `ALLOWED_ORIGINS` on Railway.
+
+**Railway's settings are code**, in [`.railway/railway.ts`](.railway/railway.ts): the Dockerfile builder, the `/health` check that must pass before traffic moves to a new deployment, restart on failure, the watch paths (only changes to `src/`, the Docker files and the Python lock files redeploy the API, so frontend and docs commits don't restart it), and "Wait for CI". Railway never reads the file during a deploy. To change a setting, edit the file, then from the repository root:
+
+```bash
+npm install
+```
+
+```bash
+npm run iac:plan
+```
+
+```bash
+npm run iac:apply
+```
+
+`iac:plan` only shows what would change. Variables, including the Groq key, stay in Railway's dashboard: the file never holds them.
+
+**Changes go through pull requests:** work on a branch, open a pull request, and merge it once CI passes. Merging to `main` deploys the API (after CI passes again on `main`) and the web page.
 
 **Before making it public:** the dataset states no licence. Keep the deployment private until that is resolved.
 
@@ -163,4 +189,5 @@ The [deployment plan](Doc/deployment-plan.md) has the full steps. In short:
 | `TRUSTED_PROXY_HOPS` | API | `0` | `1` behind Railway's proxy, so the limit sees each diner's address |
 | `WARM_CACHE_AREAS` | API | None (off) | Comma-separated areas whose default search is kept cached, so it's instant and makes no AI call for diners. Each costs about one AI search an hour, so name only a few on Groq's free plan. |
 | `WARM_CACHE_INTERVAL_SECONDS` | API | `60` | Wait between warm-up searches, which leaves most of the per-minute token limit for diners |
+| `STATE_DIR` | API | None (in memory) | Directory for the SQLite file of usage counts and feedback. The Docker image sets `/app/state`. |
 | `VITE_API_BASE_URL` | Frontend build | | The API's address. Built into the page, so not secret. |

@@ -1,4 +1,4 @@
-// Turns a sentence such as "cheap biryani in BTM, rated 4+, for a date night" into the search
+// Turns a sentence such as "pocket-friendly biryani in BTM, rated 4+, for a date night" into the search
 // form's values. It runs in the browser against the real lists of areas, cuisines and dishes,
 // so it is instant, needs no AI call, and can never pick a value the API would reject.
 

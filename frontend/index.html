@@ -30,7 +30,7 @@
             <span class="status-dot" id="status-dot"></span><span id="status-text"></span>
           </div>
           <button type="button" class="saved-button" id="saved-button" aria-haspopup="dialog">
-            <span aria-hidden="true">♥</span> Saved <span class="saved-count" id="saved-count">0</span>
+            <span class="saved-heart" data-icon="heart" data-icon-size="15"></span> Saved <span class="saved-count" id="saved-count">0</span>
           </button>
         </div>
       </div>
@@ -54,19 +54,19 @@
           <button type="button" class="link-button" id="edit-search">Edit search</button>
         </div>
 
-        <h2>Find a place to eat</h2>
+        <h2 class="form-title" data-icon="search" data-icon-size="20">Find a place to eat</h2>
 
         <div class="field words-field">
-          <label class="field-label" for="words">Describe it in your own words <span class="optional">(optional)</span></label>
+          <label class="field-label" for="words" data-icon="sparkle">Describe it in your own words <span class="optional">(optional)</span></label>
           <div class="words-row">
-            <input id="words" class="input" maxlength="300" autocomplete="off" placeholder="e.g. cheap biryani in BTM, rated 4+" aria-describedby="words-hint" />
-            <button type="button" class="words-go" id="words-go" aria-label="Fill the form from this and search">Go</button>
+            <input id="words" class="input" maxlength="300" autocomplete="off" placeholder="e.g. pocket-friendly biryani in BTM, rated 4+" aria-describedby="words-hint" />
+            <button type="button" class="words-go" id="words-go" aria-label="Fill the form from this and search">Go <span data-icon="arrow" data-icon-size="16"></span></button>
           </div>
           <span class="field-hint" id="words-hint">Fills in the form below and searches. You can still change anything.</span>
         </div>
 
         <div class="field">
-          <label class="field-label" id="area-label" for="area">Area in Bangalore</label>
+          <label class="field-label" id="area-label" for="area" data-icon="pin">Area in Bangalore</label>
           <div class="picker">
             <button type="button" id="area" class="select area-button" role="combobox" aria-haspopup="listbox" aria-expanded="false" aria-controls="area-list" disabled>
               <span id="area-value">Loading…</span>
@@ -77,12 +77,12 @@
         </div>
 
         <fieldset class="field">
-          <legend class="field-label">Budget for two</legend>
+          <legend class="field-label" data-icon="wallet">Budget for two</legend>
           <div class="budget-grid" id="budget-grid"></div>
         </fieldset>
 
         <div class="field">
-          <label class="field-label" for="cuisine-input">Cuisine</label>
+          <label class="field-label" for="cuisine-input" data-icon="bowl">Cuisine</label>
           <div class="tag-box" id="cuisine-box">
             <input id="cuisine-input" class="tag-input" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="cuisine-list" placeholder="Any cuisine" autocomplete="off" aria-describedby="cuisine-hint" />
             <ul id="cuisine-list" class="tag-menu" role="listbox" aria-label="Cuisines" hidden></ul>
@@ -91,7 +91,7 @@
         </div>
 
         <div class="field">
-          <label class="field-label" for="dish-input">Dish</label>
+          <label class="field-label" for="dish-input" data-icon="utensils">Dish</label>
           <div class="tag-box" id="dish-box">
             <input id="dish-input" class="tag-input" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="dish-list" placeholder="Any dish" autocomplete="off" aria-describedby="dish-hint" />
             <ul id="dish-list" class="tag-menu" role="listbox" aria-label="Dishes" hidden></ul>
@@ -101,7 +101,7 @@
 
         <div class="field">
           <div class="rating-row">
-            <label class="field-label" for="rating">Minimum rating</label>
+            <label class="field-label" for="rating" data-icon="star">Minimum rating</label>
             <output class="rating-value" id="rating-value" for="rating">★ 3.5</output>
           </div>
           <input id="rating" type="range" min="0" max="5" step="0.1" value="3.5" />
@@ -109,7 +109,7 @@
         </div>
 
         <div class="field">
-          <label class="field-label" for="extra">Anything else? <span class="optional">(optional)</span></label>
+          <label class="field-label" for="extra" data-icon="chat">Anything else? <span class="optional">(optional)</span></label>
           <input id="extra" class="input" maxlength="300" placeholder="For example, family-friendly, quick service" />
         </div>
 

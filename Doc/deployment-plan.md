@@ -228,12 +228,14 @@ These include the exit criteria of the implementation plan's Phase 7.
 - [x] **Loading:** placeholder cards and a step line ("Finding places…", "Ranking with AI…") instead of a lone spinner
 - [x] **Shareable searches:** keep each search in the page address; the Back button returns to the previous search
 - [x] **Remember the last search** in the browser's local storage
-- [x] **Refine buttons:** Cheaper, a higher rating, Include new places, Clear filters
+- [x] **Refine buttons:** Pocket friendly, a higher rating, Include new places, Clear filters
 - [x] **Explain the AI-busy fallback:** `ai_busy` on `/recommend`, and a notice with Try again
 - [x] **Shortlist** with a side-by-side comparison, kept in local storage
 - [x] **Search in your own words:** `frontend/src/parse.js`, matched in the browser against the real lists, so no LLM call
 - [x] **Feedback:** 👍 / 👎 per explanation, through `POST /feedback`
 - [x] **Look:** "Top pick" on the first result, ratings coloured by band, cuisine icons
+- [x] **Icons:** one set of rounded line icons in the accent colour across the form, refine buttons and cards; ₹ markers on budgets; food emoji on example searches
+- [x] **Wording:** the refine button says "Pocket friendly" rather than "Cheaper", which can suggest low quality
 - [x] **Warm cache (off by default):** `WARM_CACHE_AREAS` keeps chosen areas' default searches cached
 - [x] **Usage counts:** `GET /stats`
 - [x] Dropdowns for area, cuisine and dish that open on click and grow the item under the cursor

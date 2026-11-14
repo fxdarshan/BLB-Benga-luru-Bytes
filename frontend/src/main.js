@@ -12,6 +12,8 @@ import { load, save } from "./storage.js";
 const BUDGETS = ["any", "low", "medium", "high"];
 const LAST_SEARCH_KEY = "blb:last-search";
 const SAVED_KEY = "blb:shortlist";
+// A quick price sign on each budget option.
+const BUDGET_TIERS = { any: "✦", low: "₹", medium: "₹₹", high: "₹₹₹" };
 
 const NO_RESULTS_MESSAGE =
   "No restaurants match this search, even after loosening the rating and budget. " +
@@ -31,6 +33,26 @@ const ICONS = {
   heart:
     '<path d="M12 20s-7-4.4-9.2-8.6C1.2 8.2 3.2 4.5 6.8 4.5c2 0 3.4 1.1 5.2 3 1.8-1.9 3.2-3 5.2-3 3.6 0 5.6 3.7 4 6.9C19 15.6 12 20 12 20z"/>',
   similar: '<path d="M4 7h11M4 12h16M4 17h8"/>',
+  // Form and results. Simple rounded line icons, drawn in the accent colour by the styles.
+  wallet:
+    '<path d="M4 7.5A2.5 2.5 0 0 1 6.5 5H17v3"/><path d="M4 7.5v9A2.5 2.5 0 0 0 6.5 19H20V9H6.5A2.5 2.5 0 0 1 4 7.5z"/><circle cx="16" cy="14" r="1.2"/>',
+  bowl: '<path d="M3 11h18a9 9 0 0 1-18 0z"/><path d="M8.5 7.5c0-1.4 1-1.8 1-3.2M12.5 7.5c0-1.4 1-1.8 1-3.2"/>',
+  utensils:
+    '<path d="M7 3v18M4.5 3v5a2.5 2.5 0 0 0 5 0V3"/><path d="M18 21V3c-2.2 1.2-3.5 3.5-3.5 6.5V13H18"/>',
+  star: '<path d="m12 3.5 2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z"/>',
+  chat: '<path d="M5 5h14a1.5 1.5 0 0 1 1.5 1.5v8A1.5 1.5 0 0 1 19 16h-8l-4.5 3.5V16H5a1.5 1.5 0 0 1-1.5-1.5v-8A1.5 1.5 0 0 1 5 5z"/>',
+  arrow: '<path d="M5 12h14M13 6l6 6-6 6"/>',
+  store: '<path d="M4 10v10h16V10"/><path d="M3 10l2-6h14l2 6z"/><path d="M10 20v-5h4v5"/>',
+  crown: '<path d="m3.5 8 4.5 4 4-6.5 4 6.5 4.5-4-2 10.5h-13z"/>',
+  quote:
+    '<path d="M9.5 7H6a1 1 0 0 0-1 1v3.5a1 1 0 0 0 1 1h3c0 2-1 3.5-3 4.5"/><path d="M19 7h-3.5a1 1 0 0 0-1 1v3.5a1 1 0 0 0 1 1h3c0 2-1 3.5-3 4.5"/>',
+  bulb: '<path d="M9.5 18h5M10.5 21h3"/><path d="M12 3a6 6 0 0 0-3.6 10.8c.7.5 1.1 1.3 1.1 2.1V16h5v-.1c0-.8.4-1.6 1.1-2.1A6 6 0 0 0 12 3z"/>',
+  filter: '<path d="M4 5h16l-6 7.5V19l-4-2v-4.5z"/>',
+  reset: '<path d="M4 12a8 8 0 1 0 2.4-5.7L4 8.5"/><path d="M4 4v4.5h4.5"/>',
+  check: '<path d="m5 12.5 4.5 4.5L19 7.5"/>',
+  search: '<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>',
+  trophy:
+    '<path d="M8 4h8v5a4 4 0 0 1-8 0z"/><path d="M8 6H5a3 3 0 0 0 3 4M16 6h3a3 3 0 0 1-3 4"/><path d="M12 13v4M8.5 20h7M10 17h4v3h-4z"/>',
 };
 
 const $ = (id) => document.getElementById(id);
@@ -77,6 +99,13 @@ function icon(name, size = 14) {
   svg.setAttribute("aria-hidden", "true");
   svg.innerHTML = ICONS[name];
   return svg;
+}
+
+/** An element holding a small icon and then its text. */
+function withIcon(tag, className, iconName, text, size = 14) {
+  const node = el(tag, className);
+  node.append(icon(iconName, size), el("span", "", text));
+  return node;
 }
 
 /** Mark an element to rise into place at a step in the sequence. */
@@ -421,7 +450,10 @@ function buildBudgets(budgets) {
       button.dataset.value = budget.value;
       button.setAttribute("aria-pressed", String(budget.value === state.budget));
       button.setAttribute("aria-label", budget.label);
-      button.append(el("span", "budget-name", budget.name), el("span", "budget-range", budget.range));
+      const name = el("span", "budget-name", budget.name);
+      const tier = el("span", "budget-tier", BUDGET_TIERS[budget.value] ?? "");
+      tier.setAttribute("aria-hidden", "true");
+      button.append(tier, name, el("span", "budget-range", budget.range));
       button.addEventListener("click", () => setBudget(budget.value));
       return button;
     }),
@@ -557,7 +589,7 @@ function errorMessage(error) {
 let toastTimer = 0;
 function toast(text) {
   const box = $("toast");
-  box.textContent = text;
+  box.replaceChildren(icon("check", 16), el("span", "", text));
   box.hidden = false;
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => (box.hidden = true), 2600);
@@ -644,12 +676,12 @@ function showLoading(search) {
 // ---------- Welcome and example searches ----------
 
 const EXAMPLES = [
-  { label: "Biryani in BTM under ₹500", search: { area: "BTM", budget: "low", dishes: ["Biryani"] } },
-  { label: "Date night in Indiranagar", search: { area: "Indiranagar", budget: "high", additional: "romantic, date night" } },
-  { label: "Pizza in Koramangala 5th Block", search: { area: "Koramangala 5th Block", dishes: ["Pizza"] } },
-  { label: "Momos in Jayanagar", search: { area: "Jayanagar", dishes: ["Momos"] } },
-  { label: "North Indian in Whitefield", search: { area: "Whitefield", cuisines: ["North Indian"] } },
-  { label: "Masala dosa in Malleshwaram", search: { area: "Malleshwaram", dishes: ["Masala Dosa"] } },
+  { emoji: "🍛", label: "Biryani in BTM under ₹500", search: { area: "BTM", budget: "low", dishes: ["Biryani"] } },
+  { emoji: "🕯️", label: "Date night in Indiranagar", search: { area: "Indiranagar", budget: "high", additional: "romantic, date night" } },
+  { emoji: "🍕", label: "Pizza in Koramangala 5th Block", search: { area: "Koramangala 5th Block", dishes: ["Pizza"] } },
+  { emoji: "🥟", label: "Momos in Jayanagar", search: { area: "Jayanagar", dishes: ["Momos"] } },
+  { emoji: "🫓", label: "North Indian in Whitefield", search: { area: "Whitefield", cuisines: ["North Indian"] } },
+  { emoji: "🥞", label: "Masala dosa in Malleshwaram", search: { area: "Malleshwaram", dishes: ["Masala Dosa"] } },
 ];
 
 function exampleIsValid({ search }) {
@@ -671,7 +703,10 @@ function showWelcome() {
   );
   const list = el("div", "examples");
   for (const example of EXAMPLES.filter(exampleIsValid)) {
-    const button = el("button", "example-chip", example.label);
+    const button = el("button", "example-chip");
+    const emoji = el("span", "example-emoji", example.emoji);
+    emoji.setAttribute("aria-hidden", "true");
+    button.append(emoji, el("span", "", example.label));
     button.type = "button";
     button.addEventListener("click", () => runSearch({ ...defaultSearch(example.search.area), ...example.search }));
     list.append(button);
@@ -946,7 +981,7 @@ function card(result, data, search) {
   const top = el("div", "card-top");
   const title = el("div", "card-title");
   title.append(el("span", "rank", String(result.rank)), el("h3", "", result.name));
-  if (topPick) title.append(el("span", "top-pick-badge", "Top pick"));
+  if (topPick) title.append(withIcon("span", "top-pick-badge", "crown", "Top pick", 12));
   const rating = el("span", (result.is_rated ? "rating" : "rating unrated") + ratingBand(result));
   // "★ 4.4 (711 votes)": the vote count is shown in a lighter style.
   const parts = /^(.*?)\s(\(.*\))$/.exec(result.rating);
@@ -960,21 +995,26 @@ function card(result, data, search) {
   meta.append(picture, el("span", "cuisines", result.cuisines), el("span", "", "·"), el("span", "", result.place));
 
   const badges = el("div", "badges");
-  for (const badge of result.badges) badges.append(el("span", "badge", badge));
-  if (result.near) badges.append(el("span", "badge badge-near", result.near));
+  result.badges.forEach((badge, index) => {
+    // The first badge is the cost for two; the rest are kinds of place, such as "Cafe".
+    badges.append(withIcon("span", "badge", index === 0 ? "wallet" : "store", badge, 13));
+  });
+  if (result.near) badges.append(withIcon("span", "badge badge-near", "pin", result.near, 13));
 
   article.append(top, meta, badges);
   if (result.liked_for.length) {
-    article.append(el("div", "liked", `Liked for: ${result.liked_for.join(", ")}`));
+    article.append(withIcon("div", "liked", "heart", `Liked for: ${result.liked_for.join(", ")}`, 15));
   }
   if (result.explanation) {
     const why = el("p", "why");
-    why.append(el("b", "", "Why this fits: "), document.createTextNode(result.explanation));
+    const whyLabel = el("b", "why-label");
+    whyLabel.append(icon("bulb", 15), document.createTextNode("Why this fits: "));
+    why.append(whyLabel, document.createTextNode(result.explanation));
     article.append(why);
   }
   if (result.review) {
     const review = el("blockquote", "review");
-    review.append(el("span", "review-label", "A customer said"), document.createTextNode(`“${result.review}”`));
+    review.append(withIcon("span", "review-label", "quote", "A customer said", 13), document.createTextNode(`“${result.review}”`));
     article.append(review);
   }
   if (result.unverified.length) {
@@ -987,23 +1027,23 @@ function card(result, data, search) {
   return article;
 }
 
-/** One-tap changes to the search: cheaper, better rated, new places, or no filters. */
+/** One-tap changes to the search: pocket friendly, better rated, new places, or no filters. */
 function refineBar(search) {
   const bar = el("div", "refine");
-  bar.append(el("span", "chips-label", "Refine:"));
-  const add = (label, change) => {
-    const button = el("button", "refine-button", label);
+  bar.append(withIcon("span", "chips-label", "filter", "Refine:", 13));
+  const add = (label, change, iconName) => {
+    const button = withIcon("button", "refine-button", iconName, label, 14);
     button.type = "button";
     button.addEventListener("click", () => runSearch({ ...search, ...change }));
     bar.append(button);
   };
-  const cheaper = { high: "medium", medium: "low" }[search.budget];
-  if (cheaper) add("Cheaper", { budget: cheaper });
+  const lowerBudget = { high: "medium", medium: "low" }[search.budget];
+  if (lowerBudget) add("Pocket friendly", { budget: lowerBudget }, "wallet");
   if (search.min_rating < 4.5) {
     const higher = Math.min(4.5, Math.floor(search.min_rating * 2) / 2 + 0.5);
-    add(`Rated ${higher.toFixed(1)}+`, { min_rating: higher });
+    add(`Rated ${higher.toFixed(1)}+`, { min_rating: higher }, "star");
   }
-  if (!search.include_unrated) add("Include new places", { include_unrated: true });
+  if (!search.include_unrated) add("Include new places", { include_unrated: true }, "sparkle");
   const filtered =
     search.budget !== "any" ||
     search.cuisines.length ||
@@ -1011,7 +1051,7 @@ function refineBar(search) {
     search.additional ||
     search.min_rating !== state.defaultRating ||
     search.include_unrated;
-  if (filtered) add("Clear filters", defaultSearch(search.area));
+  if (filtered) add("Clear filters", defaultSearch(search.area), "reset");
   return bar.childElementCount > 1 ? bar : null;
 }
 
@@ -1031,10 +1071,10 @@ function aiBusyNotice(search) {
 function renderResults(data, search) {
   const count = data.results.length;
   const head = el("div", "results-head");
-  head.append(el("h2", "", "Top picks for you"), el("span", "count", `${count} result${count === 1 ? "" : "s"}`));
+  head.append(withIcon("h2", "results-title", "trophy", "Top picks for you", 22), el("span", "count", `${count} result${count === 1 ? "" : "s"}`));
 
   const chips = el("div", "chips");
-  chips.append(el("span", "chips-label", "Results for:"));
+  chips.append(withIcon("span", "chips-label", "filter", "Results for:", 13));
   for (const part of data.search_summary) chips.append(el("span", "chip", part));
 
   const nodes = [head, rise(chips, 0)];
@@ -1084,6 +1124,9 @@ function wireUp() {
   state.dishes = new TagPicker($("dish-box"), $("dish-input"), $("dish-list"), "dish");
   $("rating").addEventListener("input", showRating);
   form.addEventListener("submit", onSubmit);
+  document.querySelectorAll("[data-icon]").forEach((node) => {
+    node.prepend(icon(node.dataset.icon, Number(node.dataset.iconSize) || 15));
+  });
 
   $("words-go").disabled = true;
   $("words-go").addEventListener("click", searchFromWords);

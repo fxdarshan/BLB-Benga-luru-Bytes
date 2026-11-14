@@ -17,18 +17,18 @@ Both use the same search code in `src/recommender/`.
 
 | Feature | How it works |
 | --- | --- |
-| **Search in your own words** | Type "cheap biryani in BTM, rated 4+" and press Go. `frontend/src/parse.js` matches the sentence against the real lists of areas, cuisines and dishes, fills in the form, and searches. It runs in the browser, so it's instant and makes no AI call. Words it doesn't recognise go to "Anything else?". |
+| **Search in your own words** | Type "pocket-friendly biryani in BTM, rated 4+" and press Go. `frontend/src/parse.js` matches the sentence against the real lists of areas, cuisines and dishes, fills in the form, and searches. It runs in the browser, so it's instant and makes no AI call. Words it doesn't recognise go to "Anything else?". |
 | **Dropdowns** | Area, cuisine and dish open a list on click, narrow as you type, and work with the arrow keys and Enter. The item under the cursor grows and turns bold. |
 | **Example searches** | The empty page offers one-tap searches, such as "Biryani in BTM under ₹500". |
 | **Clear loading** | Placeholder cards and a line saying what's happening ("Ranking with AI…") while a search runs. |
 | **Shareable searches** | Each search is kept in the page address (`?area=BTM&dish=Biryani`), so it can be shared or bookmarked, and the browser's Back button returns to the previous search. |
 | **Remembers the last search** | The form is filled in with your last search when you come back. Kept in this browser only. |
-| **Refine** | One-tap buttons above the results: Cheaper, a higher minimum rating, Include new places, and Clear filters. |
+| **Refine** | One-tap buttons above the results: Pocket friendly (the next budget down), a higher minimum rating, Include new places, and Clear filters. |
 | **Phone layout** | After a search on a narrow screen, the form shrinks to a one-line summary with "Edit search", so the results are in view. |
 | **Card actions** | Directions (opens Google Maps, no key needed), Share (the phone's share sheet, or copies a link), Save, and More like this (same main cuisine and price band in the same area). |
 | **Shortlist** | ♥ Saved in the header opens your saved places side by side: rating, price for two, cuisines and area. Kept in this browser only. |
 | **Feedback** | 👍 / 👎 under each "Why this fits". Counted on the API and written to its log, as labelled examples for the evaluation. |
-| **Look** | The top result is marked "Top pick", ratings are coloured by band (green 4.0+, amber 3.5 to 3.9, grey below), and each card has a small cuisine icon. |
+| **Look** | The top result is marked "Top pick" with a crown, ratings are coloured by band (green 4.0+, amber 3.5 to 3.9, grey below), and each card has a small cuisine icon. One set of rounded line icons in the accent colour marks the form labels, budgets (✦, ₹, ₹₹, ₹₹₹), refine buttons, card badges, "Liked for", "Why this fits" and the review quote, and the example searches have food emoji. |
 | **When the AI is busy** | If Groq's per-minute limit is reached, results are ranked by rating and the page says why, with a Try again button. |
 
 ## Documents

@@ -514,3 +514,50 @@ input[type="range"] { width: 100%; min-height: 28px; }
   .compare tr { padding: 10px 0; border-bottom: 1px solid var(--border-field); }
   .compare td { padding: 2px 0; border: 0; }
 }
+
+/* ---------- Icons ----------
+   One set of rounded line icons, in the accent colour, sized to sit on the text's centre line. */
+.field-label, .form-title, .results-title, .chips-label, .liked, .review-label, .top-pick-badge,
+.badge, .refine-button, .words-go, .toast, .saved-button {
+  display: inline-flex; align-items: center; gap: 6px;
+}
+.field-label { gap: 7px; }
+.field-label > svg, .form-title > svg, .results-title > svg, .liked > svg, .why-label > svg {
+  color: var(--accent);
+}
+.form-title { gap: 10px; }
+.results-title { gap: 10px; }
+.results-title > svg { filter: drop-shadow(0 0 6px rgba(245, 165, 36, 0.35)); }
+.chips-label > svg { color: var(--text-faint); }
+.review-label { display: flex; }
+.review-label > svg { color: var(--accent); opacity: 0.85; }
+.top-pick-badge { gap: 4px; }
+.badge > svg { color: var(--text-muted); }
+.badge-near > svg { color: var(--info-text); }
+.liked { gap: 7px; }
+.liked > svg { fill: currentColor; fill-opacity: 0.25; }
+.why-label { display: inline-flex; align-items: center; gap: 5px; vertical-align: -2px; margin-right: 4px; }
+.refine-button > svg { color: var(--accent-text); }
+.words-go { justify-content: center; gap: 4px; }
+.saved-heart { display: inline-flex; color: var(--accent); }
+.saved-heart svg { fill: currentColor; }
+.toast > svg { color: var(--rating-bg); flex: none; }
+
+/* A price sign on each budget option: ✦ for any, then ₹ to ₹₹₹. */
+.budget-option { position: relative; }
+.budget-tier {
+  position: absolute; top: 8px; right: 10px;
+  font-size: 12px; font-weight: 700; letter-spacing: 0.02em; color: var(--accent-text); opacity: 0.75;
+}
+.budget-option[aria-pressed="true"] .budget-tier { opacity: 1; }
+
+/* Food emoji on the example searches. */
+.example-chip { display: inline-flex; align-items: center; gap: 8px; }
+.example-emoji { font-size: 18px; line-height: 1; }
+@media (hover: hover) {
+  .example-emoji { transition: transform 0.15s ease; }
+  .example-chip:hover .example-emoji { transform: scale(1.2) rotate(-8deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .example-emoji { transition: none; }
+}

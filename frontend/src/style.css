@@ -811,3 +811,9 @@ body, .header, .search-form, .card, .summary, .notice, .input, .select, .tag-box
   .home-link .logo { transition: none; }
   .home-link:hover .logo { transform: none; }
 }
+
+/* ---------- Results while the AI ranks ----------
+   The rating-ranked shortlist shows at once, under a note that the AI's picks are coming. */
+.notice.ai-pending { align-items: center; }
+.notice.ai-pending .spinner { border-top-color: var(--info-text); }
+.results[data-pending] .card { opacity: 0.9; }

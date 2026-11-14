@@ -6,6 +6,7 @@
 import "./style.css";
 import { ApiError, getHealth, getOptions, recommend, sendFeedback, shortlist } from "./api.js";
 import { cuisineIcon } from "./cuisine-icons.js";
+import { nearestArea } from "./areas.js";
 import { illustration } from "./illustrations.js";
 import { parseSentence } from "./parse.js";
 import { $, el, icon, notice, rise, withIcon } from "./dom.js";
@@ -408,6 +409,43 @@ function showFilterCount() {
     Boolean(search.additional),
   ].filter(Boolean).length;
   $("filter-count").textContent = set ? `· ${set} set` : "";
+}
+
+// ---------- Near me ----------
+// Picks the area nearest the diner. The position stays in the browser: it is compared with the
+// area centres in areas.js and never sent anywhere.
+
+function useMyLocation() {
+  if (!navigator.geolocation || !state.options) {
+    toast("This browser can't share a location. Pick an area instead.");
+    return;
+  }
+  const button = $("near-me");
+  button.disabled = true;
+  button.textContent = "Finding you…";
+  const done = (message) => {
+    button.disabled = false;
+    button.textContent = "Near me";
+    toast(message);
+  };
+  navigator.geolocation.getCurrentPosition(
+    ({ coords }) => {
+      const nearest = nearestArea([coords.latitude, coords.longitude], state.options.areas);
+      if (!nearest) {
+        done("You seem to be outside Bangalore, so pick an area instead.");
+        return;
+      }
+      state.area.select(nearest.area);
+      done(`Nearest area: ${nearest.area}, about ${Math.max(1, Math.round(nearest.km))} km away.`);
+    },
+    (error) =>
+      done(
+        error.code === error.PERMISSION_DENIED
+          ? "Location is turned off for this site. Pick an area instead."
+          : "Couldn't find your location just now. Pick an area instead.",
+      ),
+    { enableHighAccuracy: false, timeout: 10000, maximumAge: 600000 },
+  );
 }
 
 // ---------- The form on a phone ----------
@@ -913,6 +951,7 @@ function wireUp() {
   form.addEventListener("click", () => queueMicrotask(showFilterCount));
 
   $("edit-search").addEventListener("click", () => expandForm());
+  $("near-me").addEventListener("click", useMyLocation);
   $("home-link").addEventListener("click", (event) => {
     // Let Ctrl or Cmd-click open a new tab as usual.
     if (event.ctrlKey || event.metaKey || event.shiftKey || event.button !== 0) return;

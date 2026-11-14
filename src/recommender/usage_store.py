@@ -27,7 +27,7 @@ from typing import Any, TextIO
 logger = logging.getLogger(__name__)
 
 DB_FILENAME = "blb.sqlite3"
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 TOP = 10
 
 _SCHEMA = """
@@ -56,9 +56,14 @@ CREATE TABLE IF NOT EXISTS feedback (
     restaurant TEXT NOT NULL,
     rank INTEGER NOT NULL,
     helpful INTEGER NOT NULL,
-    ai_ranked INTEGER NOT NULL
+    ai_ranked INTEGER NOT NULL,
+    reason TEXT
 );
 """
+
+
+def _has_reason(db: sqlite3.Connection) -> bool:
+    return any(row[1] == "reason" for row in db.execute("PRAGMA table_info(feedback)"))
 
 
 def _timestamp(seconds: float) -> str:
@@ -115,6 +120,9 @@ class UsageStore:
                 # Readers don't block the writer, so /stats never holds up a search.
                 db.execute("PRAGMA journal_mode=WAL")
             db.executescript(_SCHEMA)
+            # Schema 2 adds why a diner said an explanation wasn't helpful.
+            if not _has_reason(db):
+                db.execute("ALTER TABLE feedback ADD COLUMN reason TEXT")
             with db:
                 db.execute(
                     "INSERT OR IGNORE INTO meta (key, value) VALUES ('created', ?)",
@@ -151,14 +159,28 @@ class UsageStore:
         except sqlite3.Error:
             logger.exception("Couldn't record a search in the usage store")
 
-    def record_feedback(self, restaurant: str, rank: int, helpful: bool, ai_ranked: bool) -> None:
-        """Keep one thumbs up or down on a result's explanation. Never raises."""
+    def record_feedback(
+        self,
+        restaurant: str,
+        rank: int,
+        helpful: bool,
+        ai_ranked: bool,
+        reason: str | None = None,
+    ) -> None:
+        """Keep one thumbs up or down on a result's explanation, and why if given. Never raises."""
         try:
             with self._lock, self._db:
                 self._db.execute(
-                    "INSERT INTO feedback (at, restaurant, rank, helpful, ai_ranked)"
-                    " VALUES (?, ?, ?, ?, ?)",
-                    (_timestamp(self._clock()), restaurant, rank, int(helpful), int(ai_ranked)),
+                    "INSERT INTO feedback (at, restaurant, rank, helpful, ai_ranked, reason)"
+                    " VALUES (?, ?, ?, ?, ?, ?)",
+                    (
+                        _timestamp(self._clock()),
+                        restaurant,
+                        rank,
+                        int(helpful),
+                        int(ai_ranked),
+                        reason,
+                    ),
                 )
         except sqlite3.Error:
             logger.exception("Couldn't record feedback in the usage store")
@@ -202,6 +224,12 @@ class UsageStore:
                 for kind in ("cuisine", "dish")
             }
             votes = dict(run("SELECT helpful, COUNT(*) FROM feedback GROUP BY helpful").fetchall())
+            reasons = dict(
+                run(
+                    "SELECT reason, COUNT(*) FROM feedback WHERE reason IS NOT NULL"
+                    " GROUP BY reason ORDER BY reason"
+                ).fetchall()
+            )
         return {
             "since": since,
             "storage": "persistent" if self.persistent else "memory",
@@ -213,7 +241,11 @@ class UsageStore:
             "top_cuisines": top_choices["cuisine"],
             "top_dishes": top_choices["dish"],
             "budgets": budgets,
-            "feedback": {"helpful": votes.get(1, 0), "not_helpful": votes.get(0, 0)},
+            "feedback": {
+                "helpful": votes.get(1, 0),
+                "not_helpful": votes.get(0, 0),
+                "reasons": reasons,
+            },
         }
 
     def close(self) -> None:
@@ -225,15 +257,17 @@ def export_feedback(path: Path, out: TextIO) -> int:
     """Write every piece of feedback as CSV, oldest first. Opens the file read-only."""
     db = sqlite3.connect(f"{path.resolve().as_uri()}?mode=ro", uri=True)
     try:
+        # A store from before schema 2 has no reasons; its rows export with an empty one.
+        reason = "reason" if _has_reason(db) else "NULL"
         rows = db.execute(
-            "SELECT at, restaurant, rank, helpful, ai_ranked FROM feedback ORDER BY id"
+            f"SELECT at, restaurant, rank, helpful, ai_ranked, {reason} FROM feedback ORDER BY id"
         ).fetchall()
     finally:
         db.close()
     writer = csv.writer(out, lineterminator="\n")
-    writer.writerow(["at", "restaurant", "rank", "helpful", "ai_ranked"])
-    for at, restaurant, rank, helpful, ai_ranked in rows:
-        writer.writerow([at, restaurant, rank, bool(helpful), bool(ai_ranked)])
+    writer.writerow(["at", "restaurant", "rank", "helpful", "ai_ranked", "reason"])
+    for at, restaurant, rank, helpful, ai_ranked, why in rows:
+        writer.writerow([at, restaurant, rank, bool(helpful), bool(ai_ranked), why or ""])
     return len(rows)
 
 

@@ -385,6 +385,8 @@ A thumbs up or down on one result's explanation, for the evaluation:
 { "restaurant": "Jose's Mess", "rank": 1, "helpful": true, "ai_ranked": true }
 ```
 
+With a 👎 it may add `"reason"`, one of `too_pricey`, `wrong_cuisine`, `too_far`, `explanation_off` or `other` (never free text); a reason with a 👍 is refused with `422`. The usage store's schema 2 added the `reason` column; a schema 1 file gains it on start, and its older rows export with an empty reason.
+
 Returns `204` with no body. Each piece is stored with the usage counts (export it as CSV with `python -m recommender.usage_store`), counted in `/stats`, and written to the log as one `feedback {...}` line with no free text. Limited to 30 a minute per client, separately from searches.
 
 ### `GET /stats`
@@ -400,7 +402,7 @@ Counts since the store was created. They're kept in a SQLite file in `STATE_DIR`
   "top_areas": [{ "name": "BTM", "count": 12 }],
   "top_cuisines": [], "top_dishes": [{ "name": "Biryani", "count": 8 }],
   "budgets": { "any": 30, "low": 12 },
-  "feedback": { "helpful": 6, "not_helpful": 1 },
+  "feedback": { "helpful": 6, "not_helpful": 1, "reasons": { "too_pricey": 1 } },
   "ai_budget": { "tokens_today": 41200, "daily_limit": 400000 }
 }
 ```

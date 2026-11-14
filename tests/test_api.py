@@ -263,12 +263,19 @@ def test_feedback_is_counted_logged_and_validated(caplog):
         with caplog.at_level("INFO", logger="recommender.feedback"):
             ok = client.post("/feedback", json={"restaurant": "Beta", "rank": 2, "helpful": True})
         client.post("/feedback", json={"restaurant": "Beta", "rank": 2, "helpful": False})
+        why = {"restaurant": "Gamma", "rank": 3, "helpful": False, "reason": "too_far"}
+        with caplog.at_level("INFO", logger="recommender.feedback"):
+            assert client.post("/feedback", json=why).status_code == 204
+        unknown = client.post("/feedback", json={**why, "reason": "I hated it"})
+        praised = client.post("/feedback", json={**why, "helpful": True})
         bad = client.post("/feedback", json={"restaurant": "", "rank": 0, "helpful": True})
         extra = client.post("/feedback", json={"restaurant": "B", "rank": 1, "helpful": 1, "x": 1})
         stats = client.get("/stats").json()
     assert ok.status_code == 204 and ok.content == b""
     assert bad.status_code == 422 and extra.status_code == 422
-    assert stats["feedback"] == {"helpful": 1, "not_helpful": 1}
+    assert unknown.status_code == 422 and praised.status_code == 422
+    assert stats["feedback"] == {"helpful": 1, "not_helpful": 2, "reasons": {"too_far": 1}}
+    assert '"reason": "too_far"' in caplog.text
     assert '"helpful": true' in caplog.text and '"restaurant": "Beta"' in caplog.text
 
 
@@ -335,7 +342,7 @@ def test_stats_and_feedback_survive_a_restart(tmp_path):
     assert after["storage"] == "persistent"
     assert after["searches"] == 1
     assert after["top_dishes"] == [{"name": "Biryani", "count": 1}]
-    assert after["feedback"] == {"helpful": 1, "not_helpful": 0}
+    assert after["feedback"] == {"helpful": 1, "not_helpful": 0, "reasons": {}}
     assert after["since"] == before["since"]
     assert (tmp_path / "blb.sqlite3").is_file()
 

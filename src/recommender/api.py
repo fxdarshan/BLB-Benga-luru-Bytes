@@ -24,13 +24,13 @@ from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, Response
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from recommender.candidates import InvalidPreferencesError
 from recommender.config import PROJECT_ROOT, ConfigError, load_settings
@@ -115,6 +115,9 @@ class ApiSettings:
         return cls(origins, regex, limit, hops, warm, max(1, interval), state_dir)
 
 
+FeedbackReason = Literal["too_pricey", "wrong_cuisine", "too_far", "explanation_off", "other"]
+
+
 class Feedback(BaseModel):
     """A diner's thumbs up or down on one result's explanation."""
 
@@ -124,6 +127,14 @@ class Feedback(BaseModel):
     rank: int = Field(ge=1, le=20)
     helpful: bool
     ai_ranked: bool = True
+    # Why it wasn't helpful, from a fixed list (never free text). Only with a thumbs down.
+    reason: FeedbackReason | None = None
+
+    @model_validator(mode="after")
+    def _reason_only_when_unhelpful(self) -> Feedback:
+        if self.reason is not None and self.helpful:
+            raise ValueError("a reason is only given when the explanation wasn't helpful")
+        return self
 
 
 def warm_cache(
@@ -428,12 +439,13 @@ def create_app(
         wait = feedback_limiter.check(client_address(request, settings.trusted_proxy_hops))
         if wait is not None:
             return too_many("Too much feedback. Try again in a minute.", wait)
-        stats.record_feedback(item.restaurant, item.rank, item.helpful, item.ai_ranked)
+        stats.record_feedback(item.restaurant, item.rank, item.helpful, item.ai_ranked, item.reason)
         record = {
             "restaurant": item.restaurant,
             "rank": item.rank,
             "helpful": item.helpful,
             "ai_ranked": item.ai_ranked,
+            "reason": item.reason,
         }
         feedback_logger.info("feedback %s", json.dumps(record, sort_keys=True))
         return Response(status_code=204)

@@ -581,7 +581,15 @@ input[type="range"] { width: 100%; min-height: 28px; }
 .save-button[aria-pressed="true"] { border-color: var(--accent); color: var(--accent-text); background: var(--accent-soft); }
 .save-button[aria-pressed="true"] svg { fill: currentColor; }
 
-.feedback { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text-faint); }
+.feedback { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 13px; color: var(--text-faint); }
+.feedback-reasons { flex-basis: 100%; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 4px; }
+.feedback-reasons:not([hidden]) { animation: fade-in 0.2s ease-out; }
+.reason-chip {
+  min-height: 32px; padding: 4px 12px; border: 1px solid var(--border-field); border-radius: 999px;
+  background: var(--field); color: var(--text); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer;
+}
+.reason-chip:hover { border-color: var(--accent); color: var(--accent-text); }
+.reason-skip { font-size: 13px; margin-left: 4px; }
 .feedback-label { margin-right: 4px; }
 .feedback-button {
   width: 36px; height: 32px; border: 1px solid var(--border-field); border-radius: 8px;
@@ -860,6 +868,7 @@ body, .header, .search-form, .card, .summary, .notice, .input, .select, .tag-box
 @media (pointer: coarse) {
   .action, .refine-button, .saved-button, .example-chip, .btn-secondary { min-height: 44px; }
   .theme-button, .icon-button, .feedback-button { width: 44px; height: 44px; }
+  .reason-chip, .reason-skip { min-height: 44px; }
   .link-button { display: inline-flex; align-items: center; min-height: 44px; padding: 0 6px; }
   .tag-menu-option { display: flex; align-items: center; min-height: 44px; }
   .card-actions, .refine, .loosen-buttons { gap: 10px; }

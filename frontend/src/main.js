@@ -744,6 +744,17 @@ function cardActions(result, search) {
   return row;
 }
 
+// After a thumbs down, the diner can say why in one tap. The vote is sent with the reason, or
+// without one on Skip or after a short wait, so it's never lost to an unanswered question.
+const FEEDBACK_REASONS = [
+  ["too_pricey", "Too pricey"],
+  ["wrong_cuisine", "Wrong cuisine"],
+  ["too_far", "Too far"],
+  ["explanation_off", "Explanation was off"],
+  ["other", "Something else"],
+];
+const REASON_WAIT_MS = 10000;
+
 function feedbackRow(result, data) {
   const row = el("div", "feedback");
   const label = el("span", "feedback-label", "Was this helpful?");
@@ -752,16 +763,34 @@ function feedbackRow(result, data) {
   up.type = down.type = "button";
   up.setAttribute("aria-label", "Yes, this explanation was helpful");
   down.setAttribute("aria-label", "No, this explanation wasn't helpful");
-  const send = async (helpful, button) => {
+  const reasons = el("div", "feedback-reasons");
+  reasons.setAttribute("role", "group");
+  reasons.setAttribute("aria-label", "What was off?");
+  reasons.hidden = true;
+  let waiting = 0;
+
+  const post = (helpful, reason) =>
+    sendFeedback({
+      restaurant: result.name.slice(0, 200),
+      rank: result.rank,
+      helpful,
+      ai_ranked: data.ai_ranked,
+      ...(reason ? { reason } : {}),
+    });
+
+  const send = async (helpful, button, reason = null) => {
+    clearTimeout(waiting);
+    reasons.hidden = true;
     up.disabled = down.disabled = true;
     button.setAttribute("aria-pressed", "true");
     try {
-      await sendFeedback({
-        restaurant: result.name.slice(0, 200),
-        rank: result.rank,
-        helpful,
-        ai_ranked: data.ai_ranked,
-      });
+      try {
+        await post(helpful, reason);
+      } catch (error) {
+        // An API from before reasons existed refuses the field: the vote still counts.
+        if (!(reason && error instanceof ApiError && error.kind === "invalid")) throw error;
+        await post(helpful, null);
+      }
       label.textContent = "Thanks for the feedback.";
     } catch {
       label.textContent = "Couldn't send that. Please try again.";
@@ -769,9 +798,29 @@ function feedbackRow(result, data) {
       button.removeAttribute("aria-pressed");
     }
   };
+
+  const askWhy = () => {
+    up.disabled = down.disabled = true;
+    down.setAttribute("aria-pressed", "true");
+    label.textContent = "What was off?";
+    const chips = FEEDBACK_REASONS.map(([code, text]) => {
+      const chip = el("button", "reason-chip", text);
+      chip.type = "button";
+      chip.addEventListener("click", () => send(false, down, code));
+      return chip;
+    });
+    const skip = el("button", "link-button reason-skip", "Skip");
+    skip.type = "button";
+    skip.addEventListener("click", () => send(false, down));
+    reasons.replaceChildren(...chips, skip);
+    reasons.hidden = false;
+    chips[0].focus({ preventScroll: true });
+    waiting = setTimeout(() => send(false, down), REASON_WAIT_MS);
+  };
+
   up.addEventListener("click", () => send(true, up));
-  down.addEventListener("click", () => send(false, down));
-  row.append(label, up, down);
+  down.addEventListener("click", askWhy);
+  row.append(label, up, down, reasons);
   return row;
 }
 

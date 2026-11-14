@@ -69,6 +69,7 @@ const state = {
   budget: "any",
   aiRanking: null,
   searching: false,
+  run: 0, // The number of the latest search; see runSearch.
   area: null,
   cuisines: null,
   dishes: null,
@@ -606,6 +607,8 @@ async function runSearch(search, { history = "push" } = {}) {
   setSearch(search);
   const current = preferences();
   if (!current.area) return;
+  // Each search gets a number. Going home bumps it, so a search still running is then ignored.
+  const run = ++state.run;
   state.searching = true;
   submit.disabled = true;
   $("words-go").disabled = true;
@@ -622,9 +625,11 @@ async function runSearch(search, { history = "push" } = {}) {
   showLoading(current);
   try {
     const data = await recommend(current);
+    if (run !== state.run) return;
     showStatus("");
     renderResults(data, current);
   } catch (error) {
+    if (run !== state.run) return;
     const message = errorMessage(error);
     showStatus(message, { error: true });
     const retry = el("button", "btn-secondary", "Try again");
@@ -632,12 +637,45 @@ async function runSearch(search, { history = "push" } = {}) {
     retry.addEventListener("click", () => runSearch(current, { history: "none" }));
     results.replaceChildren(stateBlock("error", "That didn't work", message, retry));
   } finally {
-    clearLoadingTimers();
-    state.searching = false;
-    submit.disabled = false;
-    $("words-go").disabled = false;
-    results.setAttribute("aria-busy", "false");
+    if (run === state.run) {
+      clearLoadingTimers();
+      state.searching = false;
+      submit.disabled = false;
+      $("words-go").disabled = false;
+      results.setAttribute("aria-busy", "false");
+    }
   }
+}
+
+/** Home: back to an empty form and the welcome screen, as on a first visit. The shortlist and
+ *  the theme are kept, since they're the diner's own choices rather than part of a search. */
+function goHome() {
+  state.run += 1; // ignore any search still running
+  clearLoadingTimers();
+  state.searching = false;
+  results.setAttribute("aria-busy", "false");
+  if (!state.options) {
+    window.location.assign("/");
+    return;
+  }
+  submit.disabled = false;
+  $("words-go").disabled = false;
+
+  setSearch(defaultSearch(state.options.areas[0]));
+  $("words").value = "";
+  state.wordsNote = "";
+  state.area.close();
+  state.cuisines.close();
+  state.dishes.close();
+  if ($("saved-dialog").open) $("saved-dialog").close();
+  showStatus("");
+  save(LAST_SEARCH_KEY, null);
+  if (window.location.search) window.history.pushState(null, "", window.location.pathname);
+
+  expandForm({ scroll: false });
+  showWelcome();
+  window.scrollTo({ top: 0, behavior: smoothScroll() });
+  toast("Fresh start. What are you in the mood for?");
 }
 
 function onSubmit(event) {
@@ -1208,6 +1246,12 @@ function wireUp() {
   });
 
   $("edit-search").addEventListener("click", () => expandForm());
+  $("home-link").addEventListener("click", (event) => {
+    // Let Ctrl or Cmd-click open a new tab as usual.
+    if (event.ctrlKey || event.metaKey || event.shiftKey || event.button !== 0) return;
+    event.preventDefault();
+    goHome();
+  });
   $("theme-button").addEventListener("click", toggleTheme);
   prefersDark.addEventListener("change", showTheme);
   showTheme();

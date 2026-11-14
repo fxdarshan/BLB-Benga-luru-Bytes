@@ -238,6 +238,7 @@ These include the exit criteria of the implementation plan's Phase 7.
 - [x] **Light theme:** follows the device's setting, with a sun/moon toggle remembered in local storage. `public/theme.js` applies a saved choice before the page draws, since the CSP allows no inline scripts. Every colour is a token, so the light palette is one block in `style.css`; text contrast is at least 5:1
 - [x] **Illustrations:** `frontend/src/illustrations.js` draws the welcome, no-matches, AI-busy and error states as inline line art coloured by the theme. No photos: the dataset has none, and stock photos would misrepresent the restaurants
 - [x] **Depth and motion:** header and top-pick glow, card lift, budget ring, menu and dialog slide-ins, button presses, a heart pop, and view-transition cross-fades, all off under reduced motion
+- [x] **Home:** the BLB logo and name link home and reset the search: form defaults, own-words box, page address and remembered search cleared, a running search ignored, and the welcome screen shown. The shortlist and theme stay
 - [x] **Wording:** the refine button says "Pocket friendly" rather than "Cheaper", which can suggest low quality
 - [x] **Warm cache (off by default):** `WARM_CACHE_AREAS` keeps chosen areas' default searches cached
 - [x] **Usage counts:** `GET /stats`

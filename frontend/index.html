@@ -65,12 +65,9 @@
         <h2 class="form-title" data-icon="search" data-icon-size="20">Find a place to eat</h2>
 
         <div class="field words-field">
-          <label class="field-label" for="words" data-icon="sparkle">Describe it in your own words <span class="optional">(optional)</span></label>
-          <div class="words-row">
-            <input id="words" class="input" maxlength="300" autocomplete="off" placeholder="e.g. pocket-friendly biryani in BTM, rated 4+" aria-describedby="words-hint" />
-            <button type="button" class="words-go" id="words-go" aria-label="Fill the form from this and search">Go <span data-icon="arrow" data-icon-size="16"></span></button>
-          </div>
-          <span class="field-hint" id="words-hint">Fills in the form below and searches. You can still change anything.</span>
+          <label class="field-label" for="words" data-icon="sparkle">What are you craving?</label>
+          <input id="words" class="input input-hero" maxlength="300" autocomplete="off" enterkeyhint="search" placeholder="e.g. pocket-friendly biryani in BTM, rated 4+" aria-describedby="words-hint" />
+          <span class="field-hint" id="words-hint">Say it like you would to a friend, then press Enter. It fills in the filters, which you can still change.</span>
         </div>
 
         <div class="field">
@@ -84,6 +81,12 @@
           </div>
         </div>
 
+        <details class="more-filters" id="more-filters">
+          <summary class="more-filters-summary">
+            <span class="more-filters-title" data-icon="filter" data-icon-size="15">More filters</span>
+            <span class="filter-count" id="filter-count"></span>
+          </summary>
+          <div class="more-filters-body">
         <fieldset class="field">
           <legend class="field-label" data-icon="wallet">Budget for two</legend>
           <div class="budget-grid" id="budget-grid"></div>
@@ -120,6 +123,8 @@
           <label class="field-label" for="extra" data-icon="chat">Anything else? <span class="optional">(optional)</span></label>
           <input id="extra" class="input" maxlength="300" placeholder="For example, family-friendly, quick service" />
         </div>
+          </div>
+        </details>
 
         <button type="submit" class="btn-primary" id="submit" disabled>
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></svg>

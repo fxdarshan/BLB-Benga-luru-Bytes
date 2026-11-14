@@ -43,6 +43,7 @@ const state = {
   defaultRating: 3.5,
   saved: [], // The shortlist, kept in this browser.
   wordsNote: "", // A note about a search typed in the diner's own words.
+  lastWords: "", // The sentence last read into the form, so it isn't read twice.
   loadingTimers: [],
 };
 
@@ -91,7 +92,6 @@ function fillForm(options) {
   setRating(options.defaults.min_rating);
   $("extra").maxLength = options.defaults.max_additional_chars;
   submit.disabled = false;
-  $("words-go").disabled = false;
 }
 
 function setRating(value) {
@@ -103,10 +103,12 @@ function showRating() {
   $("rating-value").textContent = `★ ${Number($("rating").value).toFixed(1)}`;
 }
 
-function preferences() {
+function preferences({ addTyped = true } = {}) {
   // Anything typed but not yet added still counts, if it's a known choice.
-  state.cuisines.addTyped({ quiet: true });
-  state.dishes.addTyped({ quiet: true });
+  if (addTyped) {
+    state.cuisines.addTyped({ quiet: true });
+    state.dishes.addTyped({ quiet: true });
+  }
   return {
     area: state.area.value,
     budget: state.budget,
@@ -135,6 +137,7 @@ function setSearch(search) {
   setRating(clampRating(search.min_rating ?? state.defaultRating));
   $("unrated").checked = Boolean(search.include_unrated);
   $("extra").value = String(search.additional ?? "").slice(0, 300);
+  showFilterCount();
 }
 
 // ---------- The search in the page address ----------
@@ -185,7 +188,6 @@ async function runSearch(search, { history = "push" } = {}) {
   const run = ++state.run;
   state.searching = true;
   submit.disabled = true;
-  $("words-go").disabled = true;
 
   const query = searchToQuery(current);
   if (history === "push" && window.location.search.slice(1) !== query) {
@@ -241,8 +243,7 @@ async function runSearch(search, { history = "push" } = {}) {
       clearLoadingTimers();
       state.searching = false;
       submit.disabled = false;
-      $("words-go").disabled = false;
-      results.setAttribute("aria-busy", "false");
+          results.setAttribute("aria-busy", "false");
     }
   }
 }
@@ -259,10 +260,10 @@ function goHome() {
     return;
   }
   submit.disabled = false;
-  $("words-go").disabled = false;
 
   setSearch(defaultSearch(state.options.areas[0]));
   $("words").value = "";
+  state.lastWords = "";
   state.wordsNote = "";
   state.area.close();
   state.cuisines.close();
@@ -281,6 +282,10 @@ function goHome() {
 function onSubmit(event) {
   event.preventDefault();
   if (state.searching || submit.disabled) return;
+  const words = $("words").value.trim();
+  // A new sentence fills in the filters. The same sentence again keeps any filters the diner
+  // changed by hand since.
+  if (words && words !== state.lastWords) readWords(words);
   runSearch(preferences());
 }
 
@@ -368,20 +373,17 @@ function stateBlock(name, title, text, action) {
 
 // ---------- Search in your own words ----------
 
-function searchFromWords() {
-  const text = $("words").value.trim();
-  if (!text) {
-    showStatus("Type what you're looking for first.", { error: true });
-    $("words").focus();
-    return;
-  }
+/** Fill the filters from a sentence. Anything it doesn't mention goes back to its default,
+ *  except the area, which stays as it is. */
+function readWords(text) {
   const parsed = parseSentence(text, state.options);
   const area = parsed.area ?? state.area.value;
   const notes = [];
   if (!parsed.area) notes.push(`No area was named, so this searches ${area}. Change it in the form if you like.`);
   else if (parsed.areaGuessed) notes.push(`Searching ${area}. Pick another block in the form if you meant a different one.`);
   state.wordsNote = notes.join(" ");
-  runSearch({
+  state.lastWords = text;
+  setSearch({
     area,
     budget: parsed.budget ?? "any",
     cuisines: parsed.cuisines,
@@ -390,6 +392,21 @@ function searchFromWords() {
     include_unrated: parsed.include_unrated,
     additional: parsed.additional,
   });
+}
+
+/** How many of the folded filters are set, shown beside "More filters". */
+function showFilterCount() {
+  if (!state.options) return;
+  const search = preferences({ addTyped: false });
+  const set = [
+    search.budget !== "any",
+    search.cuisines.length > 0,
+    search.dishes.length > 0,
+    search.min_rating !== state.defaultRating,
+    search.include_unrated,
+    Boolean(search.additional),
+  ].filter(Boolean).length;
+  $("filter-count").textContent = set ? `· ${set} set` : "";
 }
 
 // ---------- The form on a phone ----------
@@ -824,14 +841,10 @@ function wireUp() {
     node.prepend(icon(node.dataset.icon, Number(node.dataset.iconSize) || 15));
   });
 
-  $("words-go").disabled = true;
-  $("words-go").addEventListener("click", searchFromWords);
-  $("words").addEventListener("keydown", (event) => {
-    if (event.key === "Enter") {
-      event.preventDefault();
-      searchFromWords();
-    }
-  });
+  // The filters fold away on a phone, and start open on a wider screen.
+  $("more-filters").open = !narrowScreen.matches;
+  form.addEventListener("input", showFilterCount);
+  form.addEventListener("click", () => queueMicrotask(showFilterCount));
 
   $("edit-search").addEventListener("click", () => expandForm());
   $("home-link").addEventListener("click", (event) => {

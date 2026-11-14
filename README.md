@@ -20,6 +20,7 @@ It's a web app: a FastAPI backend (`src/recommender/api.py`) on Railway and a st
 | **Shareable searches** | Each search is kept in the page address (`?area=BTM&dish=Biryani`), so it can be shared or bookmarked, and the browser's Back button returns to the previous search. |
 | **Remembers the last search** | The form is filled in with your last search when you come back. Kept in this browser only. |
 | **Nothing matched** | The empty screen offers one-tap ways to widen the search, worked out from it: without the dish, any cuisine, any budget, a lower rating, new places, or a neighbouring area such as another Koramangala block. |
+| **Show more matches** | Below the AI's picks, adds the next 5 restaurants by rating, up to 20, under "More matches, ranked by rating". They come from `/shortlist?limit=20`, so they make no AI call. |
 | **Refine** | One-tap buttons above the results: Pocket friendly (the next budget down), a higher minimum rating, Include new places, and Clear filters. |
 | **Phone layout** | After a search on a narrow screen, the form shrinks to a one-line summary with "Edit search", so the results are in view. |
 | **Card actions** | Directions (opens Google Maps, no key needed), Share (the phone's share sheet, or copies a link), Save, and More like this (same main cuisine and price band in the same area). |
@@ -91,7 +92,7 @@ Open http://localhost:5173. `ALLOWED_ORIGINS` in `.env` must include `http://loc
 | `GET /health` | `{"status": "ok", "build_id": ..., "ai_ranking": true, "last_ai_call": {...}}`, or 503 if the data didn't load. `ai_ranking` means a key is set; `last_ai_call` says whether the AI works: `ok`, the failure `reason` (such as `authentication` for a wrong key), the model and when, or null before the first call. |
 | `GET /options` | Areas, cuisines and dishes in menu order, the budget choices, and form defaults |
 | `POST /recommend` | Display-ready results for a search. 422 for an invalid search, 429 over the rate limit, 503 without data. `ai_busy` is true when the AI was skipped because the provider's per-minute limit was reached. |
-| `POST /shortlist` | The same search ranked by rating alone, at once, with no AI call. Same body as `/recommend`, plus `ai_pending`: true when `/recommend` will have the AI rank it. 60 a minute per client, apart from searches, and not counted in `/stats`. |
+| `POST /shortlist` | The same search ranked by rating alone, at once, with no AI call. Same body as `/recommend`, plus `ai_pending`: true when `/recommend` will have the AI rank it. `?limit=` (1 to 20) asks for a longer list, for "Show more matches". 60 a minute per client, apart from searches, and not counted in `/stats`. |
 | `POST /feedback` | Records a thumbs up or down on one result's explanation: `{"restaurant", "rank", "helpful", "ai_ranked"}`. 204, or 429 over 30 a minute per client. |
 | `GET /stats` | Counts since the store was created: searches, AI-ranked searches, cache hits, fallbacks by reason, top areas, cuisines and dishes, budgets, and feedback. Nothing personal. `storage` says whether they're kept in a file (`persistent`, so they survive restarts) or in memory. |
 

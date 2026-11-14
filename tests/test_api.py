@@ -410,3 +410,11 @@ def test_health_reports_how_the_last_ai_call_went():
     assert failed["ai_ranking"] is True
     assert failed["last_ai_call"]["ok"] is False
     assert failed["last_ai_call"]["reason"] == "authentication"
+
+
+def test_shortlist_limit_is_checked():
+    with client_for(good_ranker()) as client:
+        assert client.post("/shortlist?limit=2", json=SEARCH).json()["results"].__len__() == 2
+        assert client.post("/shortlist?limit=20", json=SEARCH).status_code == 200
+        assert client.post("/shortlist?limit=0", json=SEARCH).status_code == 422
+        assert client.post("/shortlist?limit=21", json=SEARCH).status_code == 422

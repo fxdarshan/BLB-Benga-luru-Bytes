@@ -27,7 +27,7 @@ from pathlib import Path
 from typing import Any
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel, ConfigDict, Field
@@ -67,6 +67,8 @@ DEFAULT_RATE_LIMIT_PER_MINUTE = 10
 FEEDBACK_PER_MINUTE = 30
 # The shortlist makes no LLM call, so it can be generous. The page asks for one per search.
 SHORTLIST_PER_MINUTE = 60
+# The longest shortlist the page can ask for, for "Show more matches".
+MAX_SHORTLIST = 20
 RATE_WINDOW_SECONDS = 60.0
 MAX_LIKED_DISHES = 4
 DEFAULT_WARM_INTERVAL_SECONDS = 60
@@ -403,13 +405,17 @@ def create_app(
     # The same search ranked by score alone, returned at once. The page shows it while
     # /recommend has the AI rank the search. It isn't counted in /stats: /recommend is.
     @app.post("/shortlist")
-    def shortlist(preferences: Preferences, request: Request) -> JSONResponse:
+    def shortlist(
+        preferences: Preferences,
+        request: Request,
+        limit: int | None = Query(default=None, ge=1, le=MAX_SHORTLIST),
+    ) -> JSONResponse:
         current = service()
         wait = shortlist_limiter.check(client_address(request, settings.trusted_proxy_hops))
         if wait is not None:
             return too_many(RATE_LIMITED_MESSAGE, wait)
         try:
-            result = current.shortlist(preferences)
+            result = current.shortlist(preferences, limit)
         except InvalidPreferencesError as error:
             raise HTTPException(status_code=422, detail=str(error)) from error
         body = results_json(preferences, result, current.repository.metadata.budget_bands)

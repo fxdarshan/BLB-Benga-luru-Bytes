@@ -114,7 +114,7 @@ flowchart LR
 - The data is about 5.5 MB once built and 12,449 restaurants in memory, so any Railway instance size is enough.
 - The cost is a slower build: the raw dataset is a 574 MB download from Hugging Face, and processing it needs more memory than serving does. A build fails if Hugging Face is down. Railway keeps the previous deployment running when a build fails.
 - **Use a two-stage build.** The first stage installs the `ingest` group and builds `data/`. The second stage installs only the server's dependencies and copies in the finished `data/`, so the 574 MB raw download and the `datasets` package never reach the running image.
-- Docker caches the ingestion layer until `src/` changes, so most code changes still re-run it. That's acceptable at first. If builds get slow, move ingestion before `COPY src/` by copying only the files it needs, or switch to the volume below.
+- Docker caches the ingestion layer, and since Phase 7 the data stage copies only the seven modules ingestion uses (`tests/test_dockerfile.py` keeps that list complete). A change to the API's code no longer downloads the dataset again; only a change to ingestion, its modules or the Python lock files does.
 
 The fallback, if builds become too slow, is a Railway volume mounted at `/app/data` with `DATA_DIR` pointing to it, filled once by running the ingestion on the service. *Since Phase 7 the free plan's one volume holds the usage store at `/app/state`, so a data volume would need a paid plan, or the data kept on that same volume.*
 
@@ -272,6 +272,7 @@ These include the exit criteria of the implementation plan's Phase 7.
 - [x] **Instant results:** `POST /shortlist` returns the search ranked by score in milliseconds. The page shows it under a note that the AI is ranking, then swaps in the AI's picks; if the AI request fails, the shortlist stays with a Try again button
 - [x] **Fallback model:** on a Groq rate limit, the ranking is retried once on `openai/gpt-oss-20b` (`LLM_FALLBACK_MODEL`), which Groq limits separately
 - [x] **Shared calls:** identical searches that arrive together wait for one LLM call and share its result
+- [x] **Data built only when ingestion changes:** the Dockerfile's data stage copies only the modules ingestion imports, so API changes reuse the cached data layer
 - [x] **Daily token cap:** `LLM_DAILY_TOKEN_LIMIT` pauses the AI until midnight UTC once reached; today's use is in `/stats`
 
 ### Tests

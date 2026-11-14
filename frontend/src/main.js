@@ -1196,3 +1196,13 @@ async function start() {
 }
 
 start();
+
+// Installable, and quick to reopen. Only in the built page: in development it would cache files
+// that Vite is changing.
+if (import.meta.env.PROD && "serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("/sw.js").catch(() => {
+      // Without it the page works just the same, only not installable.
+    });
+  });
+}

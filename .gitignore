@@ -22,3 +22,6 @@ build/
 dist/
 .pytest_cache/
 .ruff_cache/
+
+# Node packages: the Railway CLI and IaC SDK at the root, and the web page's in frontend/
+node_modules/

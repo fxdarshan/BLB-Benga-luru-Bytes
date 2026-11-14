@@ -15,7 +15,7 @@ This plan hosts BLB (Banga-Luru Bytes) with the backend on [Railway](https://rai
 > | Frontend | https://blb-frontend.vercel.app | Vercel project `blb-frontend`, Root Directory `frontend`, deploys from `main` on GitHub |
 > | API | https://blb-benga-luru-bytes-production-f4839515.up.railway.app | Railway project `fearless-dedication`, service `BLB-Benga-luru-Bytes` |
 >
-> A search from the Vercel page returns AI-ranked results. **Still open:** the dataset licence, while the GitHub repository and both sites are public (Phase 0); cost limits, monitoring, the rate-limit burst test and rollback practice (Phase 5). Railway's `railway.json` format stops working on 2026-12-01, so run `railway config migrate` before then. The service also has a second, unused address, `blb-benga-luru-bytes-production.up.railway.app`, which can be removed.
+> A search from the Vercel page returns AI-ranked results. **Still open:** the dataset licence, while the GitHub repository and both sites are public (Phase 0); cost limits, monitoring, the rate-limit burst test and rollback practice (Phase 5). Railway's settings are now code in `.railway/railway.ts`, CI runs on every change, and usage counts and feedback are kept in SQLite (Phase 7). The service also has a second, unused address, `blb-benga-luru-bytes-production.up.railway.app`, which can be removed.
 >
 > **Phase 6 of the implementation plan (evaluation) is only partly done.** Its free preparation is complete, but the paid pilot, the judge, the full run and tuning were deferred so deployment could start. Tuning may still change the model or effort settings deployed here.
 
@@ -126,7 +126,7 @@ The fallback, if builds become too slow, is a Railway volume mounted at `/app/da
   3. Start with `uvicorn --factory recommender.api:create_app --host 0.0.0.0 --port $PORT --workers 1`. Railway sets `PORT`, and the app must listen on it.
 - [x] **Copy `Doc/problemStatement.md` into both stages.** `pyproject.toml` names it as the package `readme`, and hatchling fails to install the project without it.
 - [x] Write a `.dockerignore` that leaves out `.env`, `.venv/`, `data/`, `traces/`, `tests/`, `graft/`, `frontend/`, `.git/` and everything in `Doc/` except `problemStatement.md`, so no secret or local file enters the image
-- [x] Add `railway.json` setting the Dockerfile builder, `healthcheckPath` to `/health`, a restart policy for crashes, and watch patterns so that frontend-only commits don't rebuild the backend. Railway then waits for `/health` to return 200 before moving traffic to a new deployment.
+- [x] Add `railway.json` setting the Dockerfile builder, `healthcheckPath` to `/health`, a restart policy for crashes, and watch patterns so that frontend-only commits don't rebuild the backend. Railway then waits for `/health` to return 200 before moving traffic to a new deployment. *Railway never applied this file: on 2026-11-14 the live service had no watch paths and no health check. `.railway/railway.ts` replaced it (Phase 7).*
 - [x] Create the Railway project from the GitHub repository and set the variables in [Environment variables](#environment-variables), including `TRUSTED_PROXY_HOPS=1`. Put `GROQ_API_KEY` only in Railway's variables, never in a file.
 - [x] Generate the Railway domain (`*.up.railway.app`), or attach a custom one such as `api.<your-domain>`
 - [x] Set `ALLOWED_ORIGINS` once the Vercel address is known in Phase 4
@@ -141,7 +141,7 @@ The fallback, if builds become too slow, is a Railway volume mounted at `/app/da
 ### Exit criteria
 
 - [x] The API completes a full AI-ranked search at its Railway address
-- [ ] The health check gates deployments
+- [ ] The health check gates deployments. *Configured on 2026-11-14 through `.railway/railway.ts`; not yet tried with a deliberately broken start.*
 
 ## Phase 3: Frontend
 
@@ -254,6 +254,29 @@ These include the exit criteria of the implementation plan's Phase 7.
 - [x] 7 new API tests: `ai_busy`, stats counting, feedback validation and its own limit, warm-cache settings and behaviour. All 481 tests pass.
 - [x] In a browser against the local API: own-words search, URL update, loading placeholders, cards with every new part, Save, the shortlist, feedback reaching `/stats`, Refine, Back, opening a shared link, and the phone layout at 375 px with no sideways scrolling
 
+## Phase 7: Architecture Improvements
+
+**Goal:** Stop losing data and time on every push, and let only tested code go live. Added on 2026-11-14.
+
+**What we found:** Railway had never applied `railway.json`. The live service had no watch paths, so every push, even a frontend-only one, rebuilt and restarted the API and wiped its in-memory cache, rate limits and usage counts. It had no health check either, so a broken build could have gone straight live. Nothing ran the tests before a deploy.
+
+### Tasks
+
+- [x] **Settings as code:** migrate to `.railway/railway.ts` and apply it: the Dockerfile builder, the `/health` check, restart on failure, watch paths (`src/**`, the Python lock files, the Docker files and `Doc/problemStatement.md`) and Wait for CI. Delete `railway.json`.
+- [x] **CI:** `.github/workflows/ci.yml` runs the lint, the formatting check, the tests and the frontend build on pull requests and on pushes to `main`. Runs on `main` are never cancelled, since Railway won't deploy a commit whose only run was cancelled.
+- [x] **Wait for CI:** Railway holds each API deploy in `WAITING` until CI passes on the commit, and skips it if CI fails. It ignores other apps' checks, such as Vercel's.
+- [x] **Usage counts and feedback kept in SQLite:** `src/recommender/usage_store.py` stores them in `STATE_DIR`, with a CSV export of the feedback for the evaluation. No IP addresses or free text are stored.
+- [x] **Unprivileged server with a writable volume:** the image starts as root only to hand `STATE_DIR` to the `blb` user, then `setpriv` drops to it before the server starts.
+- [ ] **A Railway volume at `/app/state`,** so the SQLite file survives deploys. The free plan allows one 0.5 GB volume per project. A service with a volume can't run two deployments at once, so each API redeploy has a short outage; the watch paths make redeploys rare.
+- [ ] Optionally, a branch rule on `main` that requires a pull request with passing CI
+
+### Tests
+
+- [x] 16 new tests: the store's counting, persistence across reopening, ordering, fallback to memory, schema guard, thread safety and export, and the API's counts surviving a restart. All 497 tests pass.
+- [ ] A frontend-only or docs-only push no longer redeploys the API
+- [ ] A merge to `main` waits for CI before Railway deploys it
+- [ ] Usage counts and feedback survive a redeploy on Railway
+
 ## API Contract
 
 All responses are JSON. Text fields are plain text; the frontend escapes them.
@@ -345,15 +368,16 @@ A thumbs up or down on one result's explanation, for the evaluation:
 { "restaurant": "Jose's Mess", "rank": 1, "helpful": true, "ai_ranked": true }
 ```
 
-Returns `204` with no body. Each piece is counted in `/stats` and written to the log as one `feedback {...}` line with no free text. Limited to 30 a minute per client, separately from searches.
+Returns `204` with no body. Each piece is stored with the usage counts (export it as CSV with `python -m recommender.usage_store`), counted in `/stats`, and written to the log as one `feedback {...}` line with no free text. Limited to 30 a minute per client, separately from searches.
 
 ### `GET /stats`
 
-Counts since the server last started. They reset on each deploy, so read them before redeploying if you need them.
+Counts since the store was created. They're kept in a SQLite file in `STATE_DIR` (on Railway, a volume), so they survive restarts and deploys. With no `STATE_DIR` they're kept in memory and reset on restart. `storage` says which.
 
 ```json
 {
   "since": "2026-11-14T09:00:00Z",
+  "storage": "persistent",
   "searches": 42, "ai_ranked": 37, "cache_hits": 9,
   "fallbacks": { "rate_limited": 5 },
   "top_areas": [{ "name": "BTM", "count": 12 }],
@@ -383,6 +407,7 @@ Counts since the server last started. They reset on each deploy, so read them be
 | `TRUSTED_PROXY_HOPS` | `1` | New. Proxies that add to `X-Forwarded-For`, so the limit sees each diner's address |
 | `WARM_CACHE_AREAS` | Empty (off) | Optional. Comma-separated areas whose default search is kept cached. Each costs about one Groq search an hour, so on the free plan name only a few, such as `BTM,Indiranagar,Koramangala 5th Block`. |
 | `WARM_CACHE_INTERVAL_SECONDS` | `60` | Optional. Wait between warm-up searches, leaving most of Groq's per-minute limit for diners. |
+| `STATE_DIR` | `/app/state`, set by the image | Directory for the SQLite file of usage counts and feedback. On Railway, the volume's mount path. |
 | `PORT` | Set by Railway | Don't set it yourself |
 
 ### Vercel (frontend)
@@ -397,9 +422,11 @@ These are in the repository. Check them against the platforms' current docs befo
 
 | File | What it does |
 | --- | --- |
-| [`Dockerfile`](../Dockerfile) | Two stages: builds `data/` with the `ingest` group, then a server stage with only the API's dependencies, running as an unprivileged user. uv is pinned to 0.12.19, the local version. |
+| [`Dockerfile`](../Dockerfile) | Two stages: builds `data/` with the `ingest` group, then a server stage with only the API's dependencies. The server runs as an unprivileged user, after the container hands it `STATE_DIR`. uv is pinned to 0.12.19, the local version. |
 | [`.dockerignore`](../.dockerignore) | Keeps `.env`, `data/`, tests, tooling, the frontend and all of `Doc/` except `problemStatement.md` out of the build |
-| [`railway.json`](../railway.json) | Dockerfile builder, `/health` check with a 120-second timeout, restart on failure, and watch patterns so frontend-only commits don't rebuild the API |
+| [`.railway/railway.ts`](../.railway/railway.ts) | Railway's settings as code: the Dockerfile builder, the `/health` check with a 120-second timeout, restart on failure (3 tries), watch paths so frontend and docs commits don't redeploy the API, and Wait for CI. Applied with `npm run iac:apply`; Railway never reads it during a deploy. |
+| [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) | CI: lint, formatting, tests and the frontend build on every pull request and every push to `main` |
+| [`package.json`](../package.json), [`scripts/railway.mjs`](../scripts/railway.mjs) | The pinned Railway CLI and IaC SDK, and the `iac:plan` and `iac:apply` commands |
 | [`frontend/vercel.json`](../frontend/vercel.json) | Vite build, security headers (CSP, `nosniff`, referrer and permissions policies), and long caching for hashed assets |
 | [`.claude/launch.json`](../.claude/launch.json) | Local `blb-api` and `blb-frontend` servers |
 
@@ -407,14 +434,14 @@ These are in the repository. Check them against the platforms' current docs befo
 
 The two platforms need each other's addresses, so do the first deploy in this order:
 
-1. Push the repository to private GitHub, with `api.py`, the Docker files and `railway.json` in it.
-2. **Railway:** New Project, then Deploy from GitHub repo. Set the variables, leaving `ALLOWED_ORIGINS` empty for now. Generate a domain under Settings, then Networking.
+1. Push the repository to private GitHub, with `api.py`, the Docker files and `.railway/railway.ts` in it.
+2. **Railway:** New Project, then Deploy from GitHub repo. Set the variables, leaving `ALLOWED_ORIGINS` empty for now. Generate a domain under Settings, then Networking. Then apply `.railway/railway.ts` from the repository root with `npm install` and `npm run iac:apply`.
 3. Check `https://<railway-domain>/health` returns 200.
 4. **Vercel:** Add New Project, import the repository, set Root Directory to `frontend/`, set `VITE_API_BASE_URL` to the Railway address, and deploy.
 5. **Railway:** set `ALLOWED_ORIGINS` to the Vercel production address. Changing a variable triggers a redeploy.
 6. Run a full search from the Vercel address, with the browser console open.
 
-From then on, a push to `main` redeploys whichever side changed.
+From then on, merging a pull request into `main` redeploys whichever side changed. The API waits for CI to pass first.
 
 ## New Files
 
@@ -425,7 +452,9 @@ All written.
 | `src/recommender/api.py` | FastAPI app over `RecommendationService` |
 | `tests/test_api.py` | Endpoint tests |
 | `Dockerfile`, `.dockerignore` | Railway image, with the data built in |
-| `railway.json` | Builder, health check, restart policy and watch patterns |
+| `.railway/railway.ts` | Railway settings as code: builder, health check, restart policy, watch paths, Wait for CI |
+| `.github/workflows/ci.yml` | CI on pull requests and pushes to `main` |
+| `src/recommender/usage_store.py`, `tests/test_usage_store.py` | Usage counts and feedback in SQLite, and their tests |
 | `frontend/` | Vite site: `index.html`, `src/main.js`, `src/api.js`, `src/style.css`, `package.json` |
 | `frontend/vercel.json` | Security headers |
 | `README.md` | Setup, running and deployment |

@@ -21,3 +21,11 @@ app.py
 .ruff_cache/
 Doc/
 !Doc/problemStatement.md
+
+# Railway IaC tooling and CI, which the image never needs
+node_modules/
+.railway/
+.github/
+scripts/
+package.json
+package-lock.json

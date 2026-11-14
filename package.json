@@ -1,0 +1,12 @@
+{
+  "private": true,
+  "description": "Railway configuration for the BLB API, as code (.railway/railway.ts). The web page has its own package in frontend/.",
+  "scripts": {
+    "iac:plan": "node scripts/railway.mjs config plan",
+    "iac:apply": "node scripts/railway.mjs config apply"
+  },
+  "devDependencies": {
+    "@railway/cli": "5.74.0",
+    "railway": "3.17.0"
+  }
+}

@@ -55,3 +55,22 @@ def test_absolute_data_dir_is_kept(tmp_path):
 def test_invalid_settings_fail(env):
     with pytest.raises(ConfigError):
         load_settings(env)
+
+
+def test_fallback_model_follows_the_provider_and_can_be_turned_off():
+    assert load_settings({}).llm_fallback_model == "openai/gpt-oss-20b"
+    assert load_settings({"LLM_PROVIDER": "anthropic"}).llm_fallback_model is None
+    assert (
+        load_settings({"LLM_FALLBACK_MODEL": " other-model "}).llm_fallback_model == "other-model"
+    )
+    assert load_settings({"LLM_FALLBACK_MODEL": "none"}).llm_fallback_model is None
+    assert load_settings({"LLM_FALLBACK_MODEL": "OFF"}).llm_fallback_model is None
+
+
+def test_daily_token_limit():
+    assert load_settings({}).llm_daily_token_limit == 0
+    assert load_settings({"LLM_DAILY_TOKEN_LIMIT": ""}).llm_daily_token_limit == 0
+    assert load_settings({"LLM_DAILY_TOKEN_LIMIT": "400000"}).llm_daily_token_limit == 400000
+    for bad in ("-1", "lots", "1.5"):
+        with pytest.raises(ConfigError):
+            load_settings({"LLM_DAILY_TOKEN_LIMIT": bad})

@@ -9,6 +9,7 @@ import { cuisineIcon } from "./cuisine-icons.js";
 import { nearestArea } from "./areas.js";
 import { illustration } from "./illustrations.js";
 import { parseSentence } from "./parse.js";
+import { decodeShortlist, encodeShortlist } from "./share.js";
 import { $, el, icon, notice, rise, withIcon } from "./dom.js";
 import { AreaPicker, TagPicker } from "./pickers.js";
 import * as logic from "./search-logic.js";
@@ -170,6 +171,9 @@ function errorMessage(error) {
 let toastTimer = 0;
 function toast(text) {
   const box = $("toast");
+  // An open dialog sits above the page, so the toast moves into it to stay visible.
+  const host = document.querySelector("dialog[open]") ?? document.body;
+  if (box.parentElement !== host) host.append(box);
   box.replaceChildren(icon("check", 16), el("span", "", text));
   box.hidden = false;
   clearTimeout(toastTimer);
@@ -568,9 +572,15 @@ function toggleSaved(result) {
   }
 }
 
+// A shortlist someone shared shows in the same dialog, until it's saved or the dialog closes.
+let sharedList = null;
+const SHARED_PARAM = "shortlist";
+
 function renderSaved() {
   const body = $("saved-body");
-  if (!state.saved.length) {
+  const items = sharedList ?? state.saved;
+  $("saved-title").textContent = sharedList ? "A shortlist shared with you" : "Your shortlist";
+  if (!items.length) {
     body.replaceChildren(
       el("p", "empty-state", "Press ♥ Save on any restaurant to add it here and compare your favourites side by side."),
     );
@@ -584,7 +594,7 @@ function renderSaved() {
   const thead = el("thead");
   thead.append(head);
   const tbody = el("tbody");
-  for (const item of state.saved) {
+  for (const item of items) {
     const row = el("tr");
     const actions = el("td", "compare-actions");
     const maps = el("a", "link-button", "Directions");
@@ -595,7 +605,8 @@ function renderSaved() {
     remove.type = "button";
     remove.setAttribute("aria-label", `Remove ${item.name}`);
     remove.addEventListener("click", () => setSaved(state.saved.filter((s) => s.key !== item.key)));
-    actions.append(maps, remove);
+    actions.append(maps);
+    if (!sharedList) actions.append(remove);
     row.append(
       el("td", "compare-name", item.name),
       el("td", "", item.rating),
@@ -609,10 +620,70 @@ function renderSaved() {
   table.append(thead, tbody);
   const wrap = el("div", "table-wrap");
   wrap.append(table);
-  const clear = el("button", "btn-secondary", "Clear shortlist");
-  clear.type = "button";
-  clear.addEventListener("click", () => setSaved([]));
-  body.replaceChildren(wrap, clear);
+  const buttons = el("div", "saved-buttons");
+  if (sharedList) {
+    const keep = el("button", "btn-primary", "Save all to my shortlist");
+    keep.type = "button";
+    keep.addEventListener("click", saveSharedList);
+    buttons.append(keep);
+  } else {
+    const share = el("button", "btn-primary");
+    share.type = "button";
+    share.append(icon("share", 16), el("span", "", "Share shortlist"));
+    share.addEventListener("click", shareShortlist);
+    const clear = el("button", "btn-secondary", "Clear shortlist");
+    clear.type = "button";
+    clear.addEventListener("click", () => setSaved([]));
+    buttons.append(share, clear);
+  }
+  body.replaceChildren(wrap, buttons);
+}
+
+async function shareShortlist() {
+  // The link holds only what the list shows: names, ratings, prices, cuisines and areas.
+  const url = `${window.location.origin}/?${SHARED_PARAM}=${encodeShortlist(state.saved)}`;
+  const count = state.saved.length;
+  const text = `My shortlist of ${count} place${count === 1 ? "" : "s"} to eat in Bangalore`;
+  if (navigator.share) {
+    try {
+      await navigator.share({ title: "Banga-Luru Bytes shortlist", text, url });
+    } catch {
+      // The diner closed the share sheet.
+    }
+    return;
+  }
+  try {
+    await navigator.clipboard.writeText(url);
+    toast("Link to your shortlist copied");
+  } catch {
+    toast("Couldn't copy the link.");
+  }
+}
+
+function saveSharedList() {
+  const known = new Set(state.saved.map((item) => item.key));
+  const added = sharedList.filter((item) => !known.has(item.key));
+  sharedList = null;
+  setSaved([...state.saved, ...added]);
+  renderSaved();
+  toast(added.length ? `Added ${added.length} to your shortlist` : "They're all in your shortlist already");
+}
+
+/** Opens a shortlist from the address, if there is one, and takes it out of the address. */
+function openSharedList() {
+  const params = new URLSearchParams(window.location.search);
+  if (!params.has(SHARED_PARAM)) return;
+  const items = decodeShortlist(params.get(SHARED_PARAM));
+  params.delete(SHARED_PARAM);
+  const rest = params.toString();
+  window.history.replaceState(null, "", `${window.location.pathname}${rest ? `?${rest}` : ""}`);
+  if (!items) {
+    toast("That shortlist link is damaged, so it can't be shown.");
+    return;
+  }
+  sharedList = items;
+  renderSaved();
+  $("saved-dialog").showModal();
 }
 
 // ---------- Results ----------
@@ -1011,10 +1082,12 @@ function wireUp() {
 
   const dialog = $("saved-dialog");
   $("saved-button").addEventListener("click", () => {
+    sharedList = null;
     renderSaved();
     dialog.showModal();
   });
   $("saved-close").addEventListener("click", () => dialog.close());
+  dialog.addEventListener("close", () => (sharedList = null));
   // A click on the dimmed backdrop closes the dialog.
   dialog.addEventListener("click", (event) => {
     if (event.target === dialog) dialog.close();
@@ -1030,6 +1103,7 @@ function wireUp() {
 
 async function start() {
   wireUp();
+  openSharedList();
   getHealth()
     .then((health) => showAiStatus(Boolean(health.ai_ranking)))
     .catch(() => {});

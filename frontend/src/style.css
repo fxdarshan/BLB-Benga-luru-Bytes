@@ -504,14 +504,6 @@ input[type="range"] { width: 100%; min-height: 28px; }
 .icon-button:hover { background: var(--field); color: var(--text); }
 
 /* ---------- Own words ---------- */
-.words-row { display: flex; gap: 8px; }
-.words-row .input { flex: 1; min-width: 0; }
-.words-go {
-  flex: none; min-width: 56px; height: 46px; border: 1px solid var(--accent); border-radius: var(--radius-field);
-  background: var(--accent-soft); color: var(--accent-text); font: inherit; font-weight: 700; cursor: pointer;
-}
-.words-go:hover:not(:disabled) { background: var(--accent); color: var(--on-accent); }
-.words-go:disabled { opacity: 0.5; cursor: default; }
 
 /* ---------- The form shrunk to one line on a phone ---------- */
 .form-summary {
@@ -665,7 +657,6 @@ input[type="range"] { width: 100%; min-height: 28px; }
 .liked > svg { fill: currentColor; fill-opacity: 0.25; }
 .why-label { display: inline-flex; align-items: center; gap: 5px; vertical-align: -2px; margin-right: 4px; }
 .refine-button > svg { color: var(--accent-text); }
-.words-go { justify-content: center; gap: 4px; }
 .saved-heart { display: inline-flex; color: var(--accent-icon); }
 .saved-heart svg { fill: currentColor; }
 .toast > svg { color: var(--rating-bg); flex: none; }
@@ -817,3 +808,26 @@ body, .header, .search-form, .card, .summary, .notice, .input, .select, .tag-box
 .notice.ai-pending { align-items: center; }
 .notice.ai-pending .spinner { border-top-color: var(--info-text); }
 .results[data-pending] .card { opacity: 0.9; }
+
+/* ---------- One search box, filters folded ----------
+   The sentence box leads; budget, cuisine, dish, rating and "Anything else?" sit under
+   More filters, open on a wide screen and folded on a phone. */
+.input-hero { height: 54px; font-size: 17px; border-radius: 12px; }
+.input-hero::placeholder { font-size: 15px; }
+.more-filters { border: 1px solid var(--border-field); border-radius: var(--radius-field); background: var(--bg); }
+.more-filters-summary {
+  display: flex; align-items: center; gap: 8px; min-height: 48px; padding: 0 14px;
+  cursor: pointer; list-style: none; font-size: 14px; font-weight: 700; color: var(--text-label);
+}
+.more-filters-summary::-webkit-details-marker { display: none; }
+.more-filters-summary::after {
+  content: ""; margin-left: auto; width: 8px; height: 8px; border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor; transform: rotate(45deg) translateY(-2px); transition: transform 0.15s ease;
+}
+.more-filters[open] > .more-filters-summary::after { transform: rotate(225deg) translateY(-2px); }
+.more-filters-summary:hover { color: var(--accent-text); }
+.more-filters-title { display: inline-flex; align-items: center; gap: 7px; }
+.more-filters-title > svg { color: var(--accent-icon); }
+.filter-count { font-size: 13px; font-weight: 700; color: var(--accent-text); }
+.more-filters-body { display: flex; flex-direction: column; gap: 22px; padding: 6px 14px 16px; }
+@media (prefers-reduced-motion: reduce) { .more-filters-summary::after { transition: none; } }

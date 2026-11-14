@@ -272,6 +272,7 @@ These include the exit criteria of the implementation plan's Phase 7.
 - [x] **Instant results:** `POST /shortlist` returns the search ranked by score in milliseconds. The page shows it under a note that the AI is ranking, then swaps in the AI's picks; if the AI request fails, the shortlist stays with a Try again button
 - [x] **Fallback model:** on a Groq rate limit, the ranking is retried once on `openai/gpt-oss-20b` (`LLM_FALLBACK_MODEL`), which Groq limits separately
 - [x] **Shared calls:** identical searches that arrive together wait for one LLM call and share its result
+- [x] **Frontend split and tested:** `main.js` went from 1,364 lines to 896, with `dom.js`, `pickers.js` and `search-logic.js` beside it; 16 unit tests run with `npm test` in CI
 - [x] **Safe deploy order:** API changes are additive and go first, and the page treats a missing endpoint or field as absent; no `/v1/` prefix, since the page is the only client. Vercel's skip rule moved into `frontend/vercel.json` (`scripts/ignore-build.sh`) and compares `frontend/` with the commit Vercel last deployed, so a pull request that changed the page in an earlier commit still gets a preview
 - [x] **Data built only when ingestion changes:** the Dockerfile's data stage copies only the modules ingestion imports, so API changes reuse the cached data layer
 - [x] **Daily token cap:** `LLM_DAILY_TOKEN_LIMIT` pauses the AI until midnight UTC once reached; today's use is in `/stats`

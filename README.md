@@ -120,9 +120,19 @@ uv run ruff check .
 
 No test calls a paid API. Two live tests run only with `RUN_LIVE_TESTS=1`.
 
-The frontend has no test suite. Check it with `npm run build` and in a browser against the local API.
+The frontend's rules (the search in the page address, rating bands, refine, More like this and the sentence parser) have unit tests that run with Node's own test runner, with no extra packages:
 
-**CI:** [`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs the lint, the formatting check, the tests and the frontend build on every pull request and every push to `main`. Railway deploys the API only after it passes on the commit.
+```bash
+cd frontend
+```
+
+```bash
+npm test
+```
+
+The page itself is split into `main.js` (wiring), `dom.js` (icons and element helpers), `pickers.js` (the dropdowns), `search-logic.js` (pure rules) and the smaller modules beside them. Check the whole page in a browser against the local API too.
+
+**CI:** [`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs the lint, the formatting check, the tests, the frontend tests and the frontend build on every pull request and every push to `main`. Railway deploys the API only after it passes on the commit.
 
 **Usage counts and feedback** are kept in a SQLite file in `STATE_DIR`, so they survive restarts and deploys (in memory when it's unset, as locally). On Railway, `STATE_DIR` is `/app/state`, where the `blb-state` volume is mounted. The counts are at `GET /stats` on the API. To export the feedback as CSV for the evaluation:
 

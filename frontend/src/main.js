@@ -8,9 +8,11 @@ import { ApiError, getHealth, getOptions, recommend, sendFeedback, shortlist } f
 import { cuisineIcon } from "./cuisine-icons.js";
 import { illustration } from "./illustrations.js";
 import { parseSentence } from "./parse.js";
+import { $, el, icon, notice, rise, withIcon } from "./dom.js";
+import { AreaPicker, TagPicker } from "./pickers.js";
+import * as logic from "./search-logic.js";
 import { load, save } from "./storage.js";
 
-const BUDGETS = ["any", "low", "medium", "high"];
 const LAST_SEARCH_KEY = "blb:last-search";
 const SAVED_KEY = "blb:shortlist";
 const THEME_KEY = "blb:theme"; // Also read by public/theme.js.
@@ -24,42 +26,6 @@ const DATA_NOTE =
   "Data comes from a fixed Zomato snapshot for Bangalore, so some places may have closed or " +
   "changed. Check before you go.";
 
-const ICONS = {
-  info: '<path d="M12 11v5M12 8h.01"/><circle cx="12" cy="12" r="9"/>',
-  warning: '<path d="M12 3 2 20h20L12 3z"/><path d="M12 10v4M12 17h.01"/>',
-  sparkle: '<path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/>',
-  close: '<path d="M18 6 6 18M6 6l12 12"/>',
-  pin: '<path d="M12 21s-7-6.1-7-11a7 7 0 0 1 14 0c0 4.9-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/>',
-  share:
-    '<circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.6 13.5 6.8 4M15.4 6.5l-6.8 4"/>',
-  heart:
-    '<path d="M12 20s-7-4.4-9.2-8.6C1.2 8.2 3.2 4.5 6.8 4.5c2 0 3.4 1.1 5.2 3 1.8-1.9 3.2-3 5.2-3 3.6 0 5.6 3.7 4 6.9C19 15.6 12 20 12 20z"/>',
-  similar: '<path d="M4 7h11M4 12h16M4 17h8"/>',
-  // Form and results. Simple rounded line icons, drawn in the accent colour by the styles.
-  wallet:
-    '<path d="M4 7.5A2.5 2.5 0 0 1 6.5 5H17v3"/><path d="M4 7.5v9A2.5 2.5 0 0 0 6.5 19H20V9H6.5A2.5 2.5 0 0 1 4 7.5z"/><circle cx="16" cy="14" r="1.2"/>',
-  bowl: '<path d="M3 11h18a9 9 0 0 1-18 0z"/><path d="M8.5 7.5c0-1.4 1-1.8 1-3.2M12.5 7.5c0-1.4 1-1.8 1-3.2"/>',
-  utensils:
-    '<path d="M7 3v18M4.5 3v5a2.5 2.5 0 0 0 5 0V3"/><path d="M18 21V3c-2.2 1.2-3.5 3.5-3.5 6.5V13H18"/>',
-  star: '<path d="m12 3.5 2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z"/>',
-  chat: '<path d="M5 5h14a1.5 1.5 0 0 1 1.5 1.5v8A1.5 1.5 0 0 1 19 16h-8l-4.5 3.5V16H5a1.5 1.5 0 0 1-1.5-1.5v-8A1.5 1.5 0 0 1 5 5z"/>',
-  arrow: '<path d="M5 12h14M13 6l6 6-6 6"/>',
-  store: '<path d="M4 10v10h16V10"/><path d="M3 10l2-6h14l2 6z"/><path d="M10 20v-5h4v5"/>',
-  crown: '<path d="m3.5 8 4.5 4 4-6.5 4 6.5 4.5-4-2 10.5h-13z"/>',
-  quote:
-    '<path d="M9.5 7H6a1 1 0 0 0-1 1v3.5a1 1 0 0 0 1 1h3c0 2-1 3.5-3 4.5"/><path d="M19 7h-3.5a1 1 0 0 0-1 1v3.5a1 1 0 0 0 1 1h3c0 2-1 3.5-3 4.5"/>',
-  bulb: '<path d="M9.5 18h5M10.5 21h3"/><path d="M12 3a6 6 0 0 0-3.6 10.8c.7.5 1.1 1.3 1.1 2.1V16h5v-.1c0-.8.4-1.6 1.1-2.1A6 6 0 0 0 12 3z"/>',
-  filter: '<path d="M4 5h16l-6 7.5V19l-4-2v-4.5z"/>',
-  reset: '<path d="M4 12a8 8 0 1 0 2.4-5.7L4 8.5"/><path d="M4 4v4.5h4.5"/>',
-  check: '<path d="m5 12.5 4.5 4.5L19 7.5"/>',
-  search: '<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>',
-  sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M4.6 4.6 6 6M18 18l1.4 1.4M2.5 12h2M19.5 12h2M4.6 19.4 6 18M18 6l1.4-1.4"/>',
-  moon: '<path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/>',
-  trophy:
-    '<path d="M8 4h8v5a4 4 0 0 1-8 0z"/><path d="M8 6H5a3 3 0 0 0 3 4M16 6h3a3 3 0 0 1-3 4"/><path d="M12 13v4M8.5 20h7M10 17h4v3h-4z"/>',
-};
-
-const $ = (id) => document.getElementById(id);
 const form = $("search-form");
 const results = $("results");
 const submit = $("submit");
@@ -79,363 +45,6 @@ const state = {
   wordsNote: "", // A note about a search typed in the diner's own words.
   loadingTimers: [],
 };
-
-// ---------- Building elements ----------
-
-/** Create an element with a class and plain-text content. */
-function el(tag, className, text) {
-  const node = document.createElement(tag);
-  if (className) node.className = className;
-  if (text !== undefined && text !== null) node.textContent = text;
-  return node;
-}
-
-/** One of the fixed icons above. */
-function icon(name, size = 14) {
-  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-  svg.setAttribute("width", String(size));
-  svg.setAttribute("height", String(size));
-  svg.setAttribute("viewBox", "0 0 24 24");
-  svg.setAttribute("fill", "none");
-  svg.setAttribute("stroke", "currentColor");
-  svg.setAttribute("stroke-width", name === "close" ? "2.5" : "2");
-  svg.setAttribute("stroke-linecap", "round");
-  svg.setAttribute("stroke-linejoin", "round");
-  svg.setAttribute("aria-hidden", "true");
-  svg.innerHTML = ICONS[name];
-  return svg;
-}
-
-/** An element holding a small icon and then its text. */
-function withIcon(tag, className, iconName, text, size = 14) {
-  const node = el(tag, className);
-  node.append(icon(iconName, size), el("span", "", text));
-  return node;
-}
-
-/** Mark an element to rise into place at a step in the sequence. */
-function rise(node, step) {
-  node.classList.add("rise");
-  node.style.setProperty("--step", String(step));
-  return node;
-}
-
-function notice(text, kind = "info") {
-  const box = el("div", kind === "info" ? "notice" : `notice ${kind}`);
-  box.append(icon(kind === "info" ? "info" : "warning", 18), el("span", "", text));
-  return box;
-}
-
-// ---------- Tag pickers for cuisines and dishes ----------
-
-// A text box with a dropdown list, like the Streamlit multiselect. The list opens on click or
-// focus, narrows as the diner types, and adds a choice on click, or with the arrow keys and Enter.
-// A native <datalist> isn't used because Chrome shows it only after typing starts.
-
-class TagPicker {
-  constructor(box, input, list, label) {
-    this.box = box;
-    this.input = input;
-    this.list = list;
-    this.label = label;
-    this.options = [];
-    this.byKey = new Map();
-    this.chosen = [];
-    this.shown = [];
-    this.active = -1;
-    input.addEventListener("keydown", (event) => this.onKey(event));
-    input.addEventListener("input", () => this.open());
-    input.addEventListener("focus", () => this.open());
-    input.addEventListener("click", () => this.open());
-    // A click on the empty part of the box goes to the text box.
-    box.addEventListener("click", (event) => {
-      if (event.target === box) input.focus();
-    });
-    // Keep focus in the text box while an option is clicked.
-    list.addEventListener("mousedown", (event) => event.preventDefault());
-    list.addEventListener("click", (event) => {
-      const item = event.target.closest("[role=option]");
-      if (item && item.dataset.value) this.choose(item.dataset.value);
-    });
-    box.addEventListener("focusout", (event) => {
-      if (!box.contains(event.relatedTarget)) {
-        this.close();
-        this.addTyped({ quiet: true });
-      }
-    });
-  }
-
-  setOptions(options) {
-    this.options = options;
-    this.byKey = new Map(options.map((o) => [o.toLowerCase(), o]));
-  }
-
-  /** Replace the chosen tags. Names not in the list are dropped. */
-  setChosen(values) {
-    const known = (values ?? []).map((v) => this.byKey.get(String(v).toLowerCase())).filter(Boolean);
-    this.chosen = [...new Set(known)];
-    this.input.value = "";
-    this.render();
-  }
-
-  open() {
-    const typed = this.input.value.trim().toLowerCase();
-    // Keep the menu order (most popular first), with names that start with the text first.
-    const left = this.options.filter((o) => !this.chosen.includes(o));
-    const matches = typed ? left.filter((o) => o.toLowerCase().includes(typed)) : left;
-    this.shown = typed
-      ? [...matches.filter((o) => o.toLowerCase().startsWith(typed)), ...matches.filter((o) => !o.toLowerCase().startsWith(typed))]
-      : matches;
-    this.active = typed && this.shown.length ? 0 : -1;
-    this.renderList();
-    this.list.hidden = false;
-    this.input.setAttribute("aria-expanded", "true");
-  }
-
-  close() {
-    this.list.hidden = true;
-    this.active = -1;
-    this.input.setAttribute("aria-expanded", "false");
-    this.input.removeAttribute("aria-activedescendant");
-  }
-
-  renderList() {
-    const id = this.list.id;
-    if (!this.shown.length) {
-      const empty = el("li", "tag-menu-empty", this.options.length ? `No matching ${this.label}` : "Loading…");
-      this.list.replaceChildren(empty);
-      this.input.removeAttribute("aria-activedescendant");
-      return;
-    }
-    this.list.replaceChildren(
-      ...this.shown.map((option, index) => {
-        const item = el("li", "tag-menu-option");
-        item.append(el("span", "tag-menu-option-text", option));
-        item.id = `${id}-${index}`;
-        item.dataset.value = option;
-        item.setAttribute("role", "option");
-        item.setAttribute("aria-selected", String(index === this.active));
-        item.addEventListener("mouseenter", () => this.setActive(index, { scroll: false }));
-        return item;
-      }),
-    );
-    this.setActive(this.active);
-  }
-
-  setActive(index, { scroll = true } = {}) {
-    this.active = index;
-    const items = this.list.querySelectorAll("[role=option]");
-    items.forEach((item, i) => {
-      item.setAttribute("aria-selected", String(i === index));
-      item.classList.toggle("active", i === index);
-    });
-    const current = items[index];
-    if (current) {
-      this.input.setAttribute("aria-activedescendant", current.id);
-      if (scroll) current.scrollIntoView({ block: "nearest" });
-    } else {
-      this.input.removeAttribute("aria-activedescendant");
-    }
-  }
-
-  choose(value) {
-    if (!this.chosen.includes(value)) {
-      this.chosen.push(value);
-      this.render();
-    }
-    this.input.value = "";
-    showStatus("");
-    this.open();
-  }
-
-  onKey(event) {
-    const isOpen = !this.list.hidden;
-    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
-      event.preventDefault();
-      if (!isOpen) return this.open();
-      if (!this.shown.length) return;
-      const step = event.key === "ArrowDown" ? 1 : -1;
-      const next = this.active < 0 ? (step > 0 ? 0 : this.shown.length - 1) : (this.active + step + this.shown.length) % this.shown.length;
-      this.setActive(next);
-    } else if (event.key === "Enter") {
-      // Enter adds the highlighted or typed choice instead of submitting the form, unless the
-      // box is empty and nothing is highlighted.
-      if (isOpen && this.active >= 0) {
-        event.preventDefault();
-        this.choose(this.shown[this.active]);
-      } else if (this.input.value.trim()) {
-        event.preventDefault();
-        this.addTyped({ quiet: false });
-      }
-    } else if (event.key === "Escape" && isOpen) {
-      event.preventDefault();
-      this.close();
-    } else if (event.key === "Backspace" && !this.input.value && this.chosen.length) {
-      this.remove(this.chosen[this.chosen.length - 1]);
-    }
-  }
-
-  addTyped({ quiet }) {
-    const typed = this.input.value.trim();
-    if (!typed) return;
-    const match = this.byKey.get(typed.toLowerCase());
-    if (!match) {
-      if (!quiet) showStatus(`Choose a ${this.label} from the list.`, { error: true });
-      return;
-    }
-    this.input.value = "";
-    if (!this.chosen.includes(match)) {
-      this.chosen.push(match);
-      this.render();
-    }
-    showStatus("");
-  }
-
-  remove(value) {
-    this.chosen = this.chosen.filter((v) => v !== value);
-    this.render();
-    this.input.focus();
-    if (!this.list.hidden) this.open();
-  }
-
-  render() {
-    this.box.querySelectorAll(".tag").forEach((tag) => tag.remove());
-    for (const value of this.chosen) {
-      const tag = el("span", "tag", value);
-      const button = el("button", "tag-remove");
-      button.type = "button";
-      button.setAttribute("aria-label", `Remove ${value}`);
-      button.append(icon("close", 12));
-      button.addEventListener("click", () => this.remove(value));
-      tag.append(button);
-      this.box.insertBefore(tag, this.input);
-    }
-    this.input.placeholder = this.chosen.length ? `Add ${this.label}` : `Any ${this.label}`;
-  }
-}
-
-// ---------- Area picker ----------
-// A button with a dropdown list. A native <select> isn't used because its options are drawn by
-// the operating system, which ignores the page's styles, so they can't grow on hover.
-
-class AreaPicker {
-  constructor(button, label, list) {
-    this.button = button;
-    this.label = label;
-    this.list = list;
-    this.options = [];
-    this.active = -1;
-    this.typed = "";
-    this.typedAt = 0;
-    button.addEventListener("click", () => (this.list.hidden ? this.open() : this.close()));
-    button.addEventListener("keydown", (event) => this.onKey(event));
-    list.addEventListener("mousedown", (event) => event.preventDefault());
-    list.addEventListener("click", (event) => {
-      const item = event.target.closest("[role=option]");
-      if (item) this.choose(Number(item.dataset.index));
-    });
-    button.addEventListener("blur", () => this.close());
-  }
-
-  setOptions(options) {
-    this.options = options;
-    this.list.replaceChildren(
-      ...options.map((option, index) => {
-        const item = el("li", "tag-menu-option");
-        item.append(el("span", "tag-menu-option-text", option));
-        item.id = `${this.list.id}-${index}`;
-        item.dataset.index = String(index);
-        item.setAttribute("role", "option");
-        item.addEventListener("mouseenter", () => this.setActive(index, { scroll: false }));
-        return item;
-      }),
-    );
-    this.choose(0, { focus: false });
-    this.button.disabled = false;
-  }
-
-  /** Choose an area by name. Unknown names are ignored. */
-  select(value) {
-    const index = this.options.indexOf(value);
-    if (index >= 0) this.choose(index, { focus: false });
-    return index >= 0;
-  }
-
-  setUnavailable() {
-    this.button.value = "";
-    this.label.textContent = "Unavailable";
-    this.button.disabled = true;
-  }
-
-  get value() {
-    return this.button.value;
-  }
-
-  open() {
-    if (!this.options.length) return;
-    this.list.hidden = false;
-    this.button.setAttribute("aria-expanded", "true");
-    this.setActive(Math.max(0, this.options.indexOf(this.value)));
-  }
-
-  close() {
-    this.list.hidden = true;
-    this.button.setAttribute("aria-expanded", "false");
-    this.button.removeAttribute("aria-activedescendant");
-  }
-
-  setActive(index, { scroll = true } = {}) {
-    this.active = index;
-    const items = this.list.querySelectorAll("[role=option]");
-    items.forEach((item, i) => item.classList.toggle("active", i === index));
-    const current = items[index];
-    if (!current) return;
-    this.button.setAttribute("aria-activedescendant", current.id);
-    if (scroll) current.scrollIntoView({ block: "nearest" });
-  }
-
-  choose(index, { focus = true } = {}) {
-    const value = this.options[index];
-    if (value === undefined) return;
-    this.button.value = value;
-    this.label.textContent = value;
-    this.list.querySelectorAll("[role=option]").forEach((item, i) => {
-      item.setAttribute("aria-selected", String(i === index));
-    });
-    this.close();
-    if (focus) this.button.focus();
-  }
-
-  onKey(event) {
-    const isOpen = !this.list.hidden;
-    const last = this.options.length - 1;
-    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
-      event.preventDefault();
-      if (!isOpen) return this.open();
-      const step = event.key === "ArrowDown" ? 1 : -1;
-      this.setActive(Math.min(last, Math.max(0, this.active + step)));
-    } else if (isOpen && (event.key === "Home" || event.key === "End")) {
-      event.preventDefault();
-      this.setActive(event.key === "Home" ? 0 : last);
-    } else if (isOpen && (event.key === "Enter" || event.key === " ")) {
-      event.preventDefault();
-      this.choose(this.active);
-    } else if (event.key === "Escape" && isOpen) {
-      event.preventDefault();
-      this.close();
-    } else if (event.key.length === 1 && /\S/.test(event.key)) {
-      // Typing letters jumps to the first area that starts with them.
-      const now = Date.now();
-      this.typed = now - this.typedAt > 700 ? event.key : this.typed + event.key;
-      this.typedAt = now;
-      const found = this.options.findIndex((o) => o.toLowerCase().startsWith(this.typed.toLowerCase()));
-      if (found >= 0) {
-        if (!isOpen) this.open();
-        this.setActive(found);
-      }
-    }
-  }
-}
 
 // ---------- Form ----------
 
@@ -466,7 +75,7 @@ function buildBudgets(budgets) {
 }
 
 function setBudget(value) {
-  state.budget = BUDGETS.includes(value) ? value : "any";
+  state.budget = logic.BUDGET_BANDS.includes(value) ? value : "any";
   $("budget-grid")
     .querySelectorAll(".budget-option")
     .forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.value === state.budget)));
@@ -509,23 +118,13 @@ function preferences() {
   };
 }
 
-function defaultSearch(area) {
-  return {
-    area,
-    budget: "any",
-    cuisines: [],
-    dishes: [],
-    min_rating: state.defaultRating,
-    include_unrated: false,
-    additional: "",
-  };
-}
-
-function clampRating(value) {
-  const number = Number(value);
-  if (!Number.isFinite(number)) return state.defaultRating;
-  return Math.min(5, Math.max(0, Math.round(number * 10) / 10));
-}
+const defaultSearch = (area) => logic.defaultSearch(area, state.defaultRating);
+const clampRating = (value) => logic.clampRating(value, state.defaultRating);
+const searchToQuery = (search) => logic.searchToQuery(search, state.defaultRating);
+const queryToSearch = (query) => logic.queryToSearch(query, state.defaultRating);
+const similarSearch = (result, search) =>
+  logic.similarSearch(result, search, state.options.cuisines, state.defaultRating);
+const { mapsUrl, ratingBand, savedKey } = logic;
 
 /** Put a search into the form. Values the lists don't know are left out. */
 function setSearch(search) {
@@ -541,33 +140,6 @@ function setSearch(search) {
 // ---------- The search in the page address ----------
 // Each search is kept in the address, such as ?area=BTM&dish=Biryani, so it can be shared or
 // bookmarked, and the browser's Back button returns to the previous search.
-
-function searchToQuery(search) {
-  const params = new URLSearchParams();
-  params.set("area", search.area);
-  if (search.budget !== "any") params.set("budget", search.budget);
-  for (const cuisine of search.cuisines) params.append("cuisine", cuisine);
-  for (const dish of search.dishes) params.append("dish", dish);
-  if (search.min_rating !== state.defaultRating) params.set("rating", String(search.min_rating));
-  if (search.include_unrated) params.set("unrated", "1");
-  if (search.additional) params.set("q", search.additional);
-  return params.toString();
-}
-
-function queryToSearch(query) {
-  const params = new URLSearchParams(query);
-  const area = params.get("area");
-  if (!area) return null;
-  return {
-    area,
-    budget: params.get("budget") ?? "any",
-    cuisines: params.getAll("cuisine"),
-    dishes: params.getAll("dish"),
-    min_rating: params.has("rating") ? clampRating(params.get("rating")) : state.defaultRating,
-    include_unrated: params.get("unrated") === "1",
-    additional: (params.get("q") ?? "").slice(0, 300),
-  };
-}
 
 // ---------- Messages ----------
 
@@ -898,17 +470,8 @@ function smoothScroll() {
 
 // ---------- Shortlist ----------
 
-function savedKey(result) {
-  return `${result.name}|${result.place}`;
-}
-
 function isSaved(result) {
   return state.saved.some((item) => item.key === savedKey(result));
-}
-
-function mapsUrl(name, place) {
-  const query = `${name}, ${place}, Bangalore`;
-  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
 }
 
 function setSaved(items) {
@@ -997,25 +560,6 @@ function renderSaved() {
 }
 
 // ---------- Results ----------
-
-function ratingBand(result) {
-  const value = Number((/([\d.]+)/.exec(result.rating) ?? [])[1]);
-  if (!result.is_rated || !Number.isFinite(value)) return "";
-  if (value >= 4) return " band-good";
-  if (value >= 3.5) return " band-ok";
-  return " band-low";
-}
-
-/** A search for places like this one: its main cuisine and price band, in the same area. */
-function similarSearch(result, search) {
-  const known = new Set(state.options.cuisines);
-  const cuisine = result.cuisines.split(",").map((c) => c.trim()).find((c) => known.has(c));
-  if (!cuisine) return null;
-  const cost = Number(((/₹([\d,]+)/.exec(result.badges[0] ?? "") ?? [])[1] ?? "").replace(/,/g, ""));
-  let budget = "any";
-  if (cost > 0) budget = cost < 500 ? "low" : cost <= 1500 ? "medium" : "high";
-  return { ...defaultSearch(search.area), budget, cuisines: [cuisine] };
-}
 
 async function shareResult(result) {
   const url = window.location.href;
@@ -1167,21 +711,9 @@ function refineBar(search) {
     button.addEventListener("click", () => runSearch({ ...search, ...change }));
     bar.append(button);
   };
-  const lowerBudget = { high: "medium", medium: "low" }[search.budget];
-  if (lowerBudget) add("Pocket friendly", { budget: lowerBudget }, "wallet");
-  if (search.min_rating < 4.5) {
-    const higher = Math.min(4.5, Math.floor(search.min_rating * 2) / 2 + 0.5);
-    add(`Rated ${higher.toFixed(1)}+`, { min_rating: higher }, "star");
+  for (const option of logic.refineOptions(search, state.defaultRating)) {
+    add(option.label, option.change, option.icon);
   }
-  if (!search.include_unrated) add("Include new places", { include_unrated: true }, "sparkle");
-  const filtered =
-    search.budget !== "any" ||
-    search.cuisines.length ||
-    search.dishes.length ||
-    search.additional ||
-    search.min_rating !== state.defaultRating ||
-    search.include_unrated;
-  if (filtered) add("Clear filters", defaultSearch(search.area), "reset");
   return bar.childElementCount > 1 ? bar : null;
 }
 
@@ -1284,8 +816,8 @@ function showAiStatus(on) {
 
 function wireUp() {
   state.area = new AreaPicker($("area"), $("area-value"), $("area-list"));
-  state.cuisines = new TagPicker($("cuisine-box"), $("cuisine-input"), $("cuisine-list"), "cuisine");
-  state.dishes = new TagPicker($("dish-box"), $("dish-input"), $("dish-list"), "dish");
+  state.cuisines = new TagPicker($("cuisine-box"), $("cuisine-input"), $("cuisine-list"), "cuisine", showStatus);
+  state.dishes = new TagPicker($("dish-box"), $("dish-input"), $("dish-list"), "dish", showStatus);
   $("rating").addEventListener("input", showRating);
   form.addEventListener("submit", onSubmit);
   document.querySelectorAll("[data-icon]").forEach((node) => {

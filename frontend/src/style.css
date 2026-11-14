@@ -850,3 +850,14 @@ body, .header, .search-form, .card, .summary, .notice, .input, .select, .tag-box
 .loosen-label { font-size: 14px; font-weight: 600; color: var(--text-label); }
 .loosen-buttons { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
 .loosen-button { border-style: solid; }
+
+/* ---------- Touch targets ----------
+   On touch screens every control is at least 44px tall, the usual minimum for a fingertip.
+   With a mouse, the smaller sizes above stay. */
+@media (pointer: coarse) {
+  .action, .refine-button, .saved-button, .example-chip, .btn-secondary { min-height: 44px; }
+  .theme-button, .icon-button, .feedback-button { width: 44px; height: 44px; }
+  .link-button { display: inline-flex; align-items: center; min-height: 44px; padding: 0 6px; }
+  .tag-menu-option { display: flex; align-items: center; min-height: 44px; }
+  .card-actions, .refine, .loosen-buttons { gap: 10px; }
+}

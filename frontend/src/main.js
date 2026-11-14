@@ -222,7 +222,8 @@ async function runSearch(search, { history = "push" } = {}) {
     if (run !== state.run) return;
     showStatus("");
     // Swap in place: the shortlist already brought the results into view.
-    renderResults(data, current, { scroll: !quick });
+    // With the shortlist on screen, the AI's picks slide into place instead of replacing it.
+    renderResults(data, current, { scroll: !quick, steady: Boolean(quick) });
   } catch (error) {
     aiDone = true;
     if (run !== state.run) return;
@@ -668,11 +669,14 @@ function feedbackRow(result, data) {
 function card(result, data, search) {
   const topPick = result.rank === 1 && data.results.length > 1;
   const article = el("article", topPick ? "card top-pick" : "card");
+  // Identifies the restaurant across renders, so a card can slide to its new place.
+  article.dataset.key = savedKey(result);
 
   const top = el("div", "card-top");
   const title = el("div", "card-title");
   title.append(el("span", "rank", String(result.rank)), el("h3", "", result.name));
   if (topPick) title.append(withIcon("span", "top-pick-badge", "crown", "Top pick", 12));
+  else if (data.ai_ranked) title.append(withIcon("span", "ai-pick-badge", "sparkle", "AI pick", 11));
   const rating = el("span", (result.is_rated ? "rating" : "rating unrated") + ratingBand(result));
   // "★ 4.4 (711 votes)": the vote count is shown in a lighter style.
   const parts = /^(.*?)\s(\(.*\))$/.exec(result.rating);
@@ -776,7 +780,11 @@ function aiFailedNotice(message, search) {
   return box;
 }
 
-function renderResults(data, search, { pending = false, aiError = "", scroll = true } = {}) {
+function renderResults(
+  data,
+  search,
+  { pending = false, aiError = "", scroll = true, steady = false } = {},
+) {
   const count = data.results.length;
   const head = el("div", "results-head");
   head.append(withIcon("h2", "results-title", "trophy", "Top picks for you", 22), el("span", "count", `${count} result${count === 1 ? "" : "s"}`));
@@ -808,6 +816,10 @@ function renderResults(data, search, { pending = false, aiError = "", scroll = t
     data.results.forEach((result, index) => nodes.push(rise(card(result, data, search), index + 2)));
     nodes.push(rise(el("p", "footnote", DATA_NOTE), count + 2));
   }
+  if (steady) {
+    settle(nodes);
+    return;
+  }
   swap(() => {
     results.replaceChildren(...nodes);
     results.toggleAttribute("data-pending", pending);
@@ -820,6 +832,42 @@ function renderResults(data, search, { pending = false, aiError = "", scroll = t
       results.scrollIntoView({ behavior: smoothScroll(), block: "start" });
     }
   });
+}
+
+/** Swap in new results without a jump: the card being read stays where it is on screen, cards
+ *  the old and new results share slide to their new places, and new ones fade in. */
+function settle(nodes) {
+  const cardTops = () =>
+    new Map([...results.querySelectorAll(".card[data-key]")].map((c) => [c.dataset.key, c.getBoundingClientRect().top]));
+  const before = cardTops();
+  // Hold the page on the card being read: the first one still on screen, or, if the AI dropped
+  // it, the next one below it that the new results keep.
+  const kept = new Set(nodes.flatMap((n) => (n.dataset?.key ? [n.dataset.key] : [])));
+  const onScreen = [...results.querySelectorAll(".card[data-key]")].filter((c) => c.getBoundingClientRect().bottom > 0);
+  const reading = onScreen.find((c) => kept.has(c.dataset.key));
+  for (const node of nodes) node.classList.remove("rise");
+  results.replaceChildren(...nodes);
+  results.removeAttribute("data-pending");
+  if (reading) {
+    const now = results.querySelector(`.card[data-key="${CSS.escape(reading.dataset.key)}"]`);
+    if (now) window.scrollBy(0, now.getBoundingClientRect().top - before.get(reading.dataset.key));
+  }
+  if (reducedMotion()) return;
+  const after = cardTops();
+  for (const node of results.querySelectorAll(".card[data-key]")) {
+    const old = before.get(node.dataset.key);
+    if (old === undefined) {
+      node.classList.add("arrive");
+      continue;
+    }
+    const shift = old - after.get(node.dataset.key);
+    if (Math.abs(shift) < 1) continue;
+    node.style.transition = "none";
+    node.style.transform = `translateY(${shift}px)`;
+    void node.offsetHeight; // apply the starting point before animating from it
+    node.style.transition = "transform 0.5s cubic-bezier(0.2, 0.8, 0.2, 1)";
+    node.style.transform = "";
+  }
 }
 
 // ---------- Start ----------

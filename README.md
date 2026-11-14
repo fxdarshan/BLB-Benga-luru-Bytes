@@ -21,7 +21,8 @@ Both use the same search code in `src/recommender/`.
 | **Dropdowns** | Area, cuisine and dish open a list on click, narrow as you type, and work with the arrow keys and Enter. The item under the cursor grows and turns bold. |
 | **Home** | Clicking the BLB logo or name starts over: the form returns to its defaults, the own-words box, page address and remembered search are cleared, any search still running is ignored, and the welcome screen returns. The shortlist and theme are kept. Ctrl or Cmd-click still opens a new tab. |
 | **Example searches** | The empty page offers one-tap searches, such as "Biryani in BTM under ₹500". |
-| **Clear loading** | Placeholder cards and a line saying what's happening ("Ranking with AI…") while a search runs. |
+| **Instant results** | The best matches by rating appear in about 0.2 seconds, from `POST /shortlist`, with a note that the AI is ranking them. The AI's picks and reasons replace them when they arrive, about 2 to 20 seconds later. If the AI request fails, the rating-ranked results stay, with a Try again button. |
+| **Clear loading** | Placeholder cards and a line saying what's happening ("Ranking with AI…") until the first results arrive. |
 | **Shareable searches** | Each search is kept in the page address (`?area=BTM&dish=Biryani`), so it can be shared or bookmarked, and the browser's Back button returns to the previous search. |
 | **Remembers the last search** | The form is filled in with your last search when you come back. Kept in this browser only. |
 | **Refine** | One-tap buttons above the results: Pocket friendly (the next budget down), a higher minimum rating, Include new places, and Clear filters. |
@@ -33,7 +34,7 @@ Both use the same search code in `src/recommender/`.
 | **Light and dark themes** | Follows the phone or computer's setting, and the sun/moon button in the header switches it. The choice is remembered in this browser. The light theme is a warm cream version of the dark one, for reading outdoors; all text is at least 5:1 contrast in both. |
 | **Illustrations** | Small line drawings in the accent colour for the welcome screen (a steaming bowl and skyline), no matches (an empty plate), the AI being busy (a pot on the boil) and errors (an unplugged cable). |
 | **Depth and motion** | A warm glow on the header and the top pick, cards that lift on hover, a ring around the chosen budget, lists and the shortlist that slide open, buttons that press in, a heart that pops on Save, and cross-fades when results or the theme change. All motion stops when the device asks for reduced motion. |
-| **When the AI is busy** | If Groq's per-minute limit is reached, results are ranked by rating and the page says why, with a Try again button. |
+| **When the AI is busy** | If Groq's per-minute limit stops the main model, the search is retried once on a smaller model (`openai/gpt-oss-20b`), which Groq limits separately. Only if that is busy too are results ranked by rating, and the page says why, with a Try again button. Identical searches that arrive together share one AI call, and an optional daily token cap pauses the AI until midnight UTC. |
 
 ## Documents
 
@@ -101,6 +102,7 @@ uv run streamlit run app.py
 | `GET /health` | `{"status": "ok", "build_id": ..., "ai_ranking": true}`, or 503 if the data didn't load |
 | `GET /options` | Areas, cuisines and dishes in menu order, the budget choices, and form defaults |
 | `POST /recommend` | Display-ready results for a search. 422 for an invalid search, 429 over the rate limit, 503 without data. `ai_busy` is true when the AI was skipped because the provider's per-minute limit was reached. |
+| `POST /shortlist` | The same search ranked by rating alone, at once, with no AI call. Same body as `/recommend`, plus `ai_pending`: true when `/recommend` will have the AI rank it. 60 a minute per client, apart from searches, and not counted in `/stats`. |
 | `POST /feedback` | Records a thumbs up or down on one result's explanation: `{"restaurant", "rank", "helpful", "ai_ranked"}`. 204, or 429 over 30 a minute per client. |
 | `GET /stats` | Counts since the store was created: searches, AI-ranked searches, cache hits, fallbacks by reason, top areas, cuisines and dishes, budgets, and feedback. Nothing personal. `storage` says whether they're kept in a file (`persistent`, so they survive restarts) or in memory. |
 
@@ -179,6 +181,8 @@ npm run iac:apply
 | `LLM_PROVIDER` | API, Streamlit | `groq` | Or `anthropic` |
 | `GROQ_API_KEY`, `ANTHROPIC_API_KEY` | API, Streamlit | | Secret. Only the chosen provider's key is needed. |
 | `LLM_MODEL` | API, Streamlit | Provider default | `openai/gpt-oss-120b` for Groq |
+| `LLM_FALLBACK_MODEL` | API, Streamlit | `openai/gpt-oss-20b` for Groq | Tried once when the main model hits its per-minute limit. `none` turns it off. Groq only: Claude has its own fallback. |
+| `LLM_DAILY_TOKEN_LIMIT` | API, Streamlit | `0` (no cap) | AI tokens allowed per UTC day; after that, results are ranked by score until midnight UTC. Counted in memory, so a restart starts the count again. Today's use is in `/stats` as `ai_budget`. |
 | `LLM_EFFORT` | API, Streamlit | `low` | |
 | `LLM_TIMEOUT_SECONDS` | API, Streamlit | `45` | |
 | `MAX_CANDIDATES`, `MAX_RESULTS` | API, Streamlit | `8`, `5` | |

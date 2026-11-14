@@ -269,11 +269,18 @@ These include the exit criteria of the implementation plan's Phase 7.
 - [x] **Unprivileged server with a writable volume:** the image starts as root only to hand `STATE_DIR` to the `blb` user, then `setpriv` drops to it before the server starts.
 - [x] **A Railway volume at `/app/state`,** so the SQLite file survives deploys: `blb-state`, 500 MB, declared in `.railway/railway.ts`. The free plan allows one 0.5 GB volume per project. A service with a volume can't run two deployments at once, so each API redeploy has a short outage: about 30 to 45 seconds when the volume was first mounted, and a few seconds for a plain redeploy. The watch paths make redeploys rare.
 - [ ] Optionally, a branch rule on `main` that requires a pull request with passing CI
+- [x] **Instant results:** `POST /shortlist` returns the search ranked by score in milliseconds. The page shows it under a note that the AI is ranking, then swaps in the AI's picks; if the AI request fails, the shortlist stays with a Try again button
+- [x] **Fallback model:** on a Groq rate limit, the ranking is retried once on `openai/gpt-oss-20b` (`LLM_FALLBACK_MODEL`), which Groq limits separately
+- [x] **Shared calls:** identical searches that arrive together wait for one LLM call and share its result
+- [x] **Daily token cap:** `LLM_DAILY_TOKEN_LIMIT` pauses the AI until midnight UTC once reached; today's use is in `/stats`
 
 ### Tests
 
 - [x] 16 new tests: the store's counting, persistence across reopening, ordering, fallback to memory, schema guard, thread safety and export, and the API's counts surviving a restart. All 497 tests pass locally; on CI, 490 pass and 9 skip, since CI has no restaurant data.
-- [ ] A frontend-only or docs-only push no longer redeploys the API
+- [x] A frontend-only or docs-only push no longer redeploys the API: Railway marked the merge of pull request 2 (only `.railway/railway.ts` and docs) as `SKIPPED`, and `/stats` kept its start time
+- [x] The shortlist shows in about 0.2 seconds and the AI's picks replace it about 3 seconds later, checked in a browser against the local API with Groq
+- [x] The fallback model accepts the same strict request: one real call to `openai/gpt-oss-20b` returned a valid ranking in 1.5 seconds
+- [x] 21 new tests: the shortlist, shared calls, the daily cap and its reset at midnight UTC, the fallback model's rules, the settings, and the `/shortlist` endpoint. All 518 tests pass
 - [x] A merge to `main` waits for CI before Railway deploys it: the merge of pull request 1 sat in `WAITING` until CI passed at 06:41:48 UTC, and Railway started building at 06:42:02
 - [x] Usage counts and feedback survive a redeploy on Railway: after `railway redeploy`, `/stats` kept its `since` time and the search made before it
 
@@ -360,6 +367,10 @@ Response:
 
 Errors: `422` invalid request, `429` too many searches (with `Retry-After`), `503` data unavailable. Each has a plain `"detail"` message.
 
+### `POST /shortlist`
+
+The same request as `/recommend`, answered at once by score alone, with no LLM call. The response has the same shape, with `ai_ranked: false` and no explanations, plus `ai_pending`: true when `/recommend` will have the AI rank the search. The page shows it while waiting for `/recommend`. Limited to 60 a minute per client, apart from searches; not counted in `/stats`.
+
 ### `POST /feedback`
 
 A thumbs up or down on one result's explanation, for the evaluation:
@@ -383,7 +394,8 @@ Counts since the store was created. They're kept in a SQLite file in `STATE_DIR`
   "top_areas": [{ "name": "BTM", "count": 12 }],
   "top_cuisines": [], "top_dishes": [{ "name": "Biryani", "count": 8 }],
   "budgets": { "any": 30, "low": 12 },
-  "feedback": { "helpful": 6, "not_helpful": 1 }
+  "feedback": { "helpful": 6, "not_helpful": 1 },
+  "ai_budget": { "tokens_today": 41200, "daily_limit": 400000 }
 }
 ```
 
@@ -396,6 +408,8 @@ Counts since the store was created. They're kept in a SQLite file in `STATE_DIR`
 | `GROQ_API_KEY` | Your key | Secret. Only here. |
 | `LLM_PROVIDER` | `groq` | Or `anthropic`, with `ANTHROPIC_API_KEY` |
 | `LLM_MODEL` | Empty | Uses the provider's default, `openai/gpt-oss-120b` for Groq |
+| `LLM_FALLBACK_MODEL` | Empty | Uses `openai/gpt-oss-20b` when the main model is rate-limited. `none` turns it off. |
+| `LLM_DAILY_TOKEN_LIMIT` | `400000` | AI tokens per UTC day, about 115 AI searches. `0` means no cap. |
 | `LLM_EFFORT` | `low` | Keeps reasoning short, which saves tokens |
 | `LLM_TIMEOUT_SECONDS` | `45` | |
 | `MAX_CANDIDATES` | `8` | |

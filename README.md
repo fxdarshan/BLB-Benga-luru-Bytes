@@ -172,6 +172,8 @@ npm run iac:apply
 
 **Changes go through pull requests:** work on a branch, open a pull request, and merge it once CI passes. Merging to `main` deploys the API (after CI passes again on `main`) and the web page.
 
+**Change the API before the page.** Vercel deploys the page in seconds and Railway the API in minutes, so after a merge the new page briefly talks to the old API. Keep API changes additive (new endpoints and fields only), ship them first, and have the page treat a missing endpoint or field as absent, as it does for `/shortlist` and `/feedback`. Remove something from the API only after the page has stopped using it. Vercel skips builds when nothing in `frontend/` changed since its last deployment (`frontend/scripts/ignore-build.sh`).
+
 **Before making it public:** the dataset states no licence. Keep the deployment private until that is resolved.
 
 ## Configuration

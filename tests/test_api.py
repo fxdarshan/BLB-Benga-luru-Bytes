@@ -227,3 +227,96 @@ def test_api_settings_read_the_environment():
     assert ApiSettings.from_env({}).allowed_origins == ()
     with pytest.raises(ConfigError):
         ApiSettings.from_env({"RATE_LIMIT_PER_MINUTE": "lots"})
+
+
+def test_a_rate_limited_llm_marks_the_results_as_ai_busy():
+    with client_for(FakeRanker(error=LLMUnavailable("rate_limited"))) as client:
+        busy = client.post("/recommend", json=SEARCH).json()
+    with client_for(FakeRanker(error=LLMUnavailable("timeout"))) as client:
+        other = client.post("/recommend", json=SEARCH).json()
+    with client_for(good_ranker()) as client:
+        ranked = client.post("/recommend", json=SEARCH).json()
+    assert busy["ai_busy"] is True and busy["ai_ranked"] is False
+    assert other["ai_busy"] is False
+    assert ranked["ai_busy"] is False and ranked["ai_ranked"] is True
+
+
+def test_stats_count_searches_choices_fallbacks_and_cache_hits():
+    with client_for(good_ranker()) as client:
+        client.post("/recommend", json={**SEARCH, "dishes": ["Biryani"]})
+        client.post("/recommend", json={**SEARCH, "dishes": ["Biryani"]})
+        stats = client.get("/stats").json()
+    assert stats["searches"] == 2
+    assert stats["ai_ranked"] == 2
+    assert stats["cache_hits"] == 1
+    assert stats["top_areas"] == [{"name": "MG Road", "count": 2}]
+    assert stats["top_dishes"] == [{"name": "Biryani", "count": 2}]
+    assert stats["budgets"] == {"medium": 2}
+    with client_for(FakeRanker(error=LLMUnavailable("rate_limited"))) as client:
+        client.post("/recommend", json=SEARCH)
+        assert client.get("/stats").json()["fallbacks"] == {"rate_limited": 1}
+
+
+def test_feedback_is_counted_logged_and_validated(caplog):
+    with client_for(good_ranker()) as client:
+        with caplog.at_level("INFO", logger="recommender.feedback"):
+            ok = client.post("/feedback", json={"restaurant": "Beta", "rank": 2, "helpful": True})
+        client.post("/feedback", json={"restaurant": "Beta", "rank": 2, "helpful": False})
+        bad = client.post("/feedback", json={"restaurant": "", "rank": 0, "helpful": True})
+        extra = client.post("/feedback", json={"restaurant": "B", "rank": 1, "helpful": 1, "x": 1})
+        stats = client.get("/stats").json()
+    assert ok.status_code == 204 and ok.content == b""
+    assert bad.status_code == 422 and extra.status_code == 422
+    assert stats["feedback"] == {"helpful": 1, "not_helpful": 1}
+    assert '"helpful": true' in caplog.text and '"restaurant": "Beta"' in caplog.text
+
+
+def test_feedback_has_its_own_limit():
+    with client_for(good_ranker()) as client:
+        codes = [
+            client.post(
+                "/feedback", json={"restaurant": "B", "rank": 1, "helpful": True}
+            ).status_code
+            for _ in range(31)
+        ]
+    assert codes[:30] == [204] * 30 and codes[30] == 429
+
+
+def test_warm_cache_settings_read_the_environment():
+    settings = ApiSettings.from_env(
+        {"WARM_CACHE_AREAS": " MG Road, Indiranagar ,", "WARM_CACHE_INTERVAL_SECONDS": "0"}
+    )
+    assert settings.warm_areas == ("MG Road", "Indiranagar")
+    assert settings.warm_interval_seconds == 1
+    assert ApiSettings.from_env({}).warm_areas == ()
+
+
+def test_warm_cache_fills_each_known_area_once_and_skips_unknown_ones():
+    import threading
+
+    from recommender.api import warm_cache
+    from recommender.models import Preferences
+
+    ranker = good_ranker()
+    service = RecommendationService(repository(), ranker)
+    stop = threading.Event()
+    waits = []
+
+    def fake_wait(seconds):
+        waits.append(seconds)
+        return len(waits) >= 3  # stop after the second pass
+
+    stop.wait = fake_wait
+    warm_cache(service, ("MG Road", "Nowhere"), 5, stop)
+    assert service.is_cached(Preferences(area="MG Road", min_rating=3.5))
+    # One LLM call: the second pass finds MG Road already cached.
+    assert len(ranker.calls) == 1
+
+
+def test_warm_cache_does_nothing_without_an_llm():
+    import threading
+
+    from recommender.api import warm_cache
+
+    service = RecommendationService(repository(), None)
+    warm_cache(service, ("MG Road",), 5, threading.Event())  # returns at once

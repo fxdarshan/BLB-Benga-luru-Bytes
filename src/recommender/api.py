@@ -12,12 +12,13 @@ LLM failed, stay in the logs.
 
 from __future__ import annotations
 
+import json
 import logging
 import os
 import sys
 import threading
 import time
-from collections import defaultdict, deque
+from collections import Counter, defaultdict, deque
 from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
@@ -26,7 +27,8 @@ from typing import Any
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
+from pydantic import BaseModel, ConfigDict, Field
 
 from recommender.candidates import InvalidPreferencesError
 from recommender.config import PROJECT_ROOT, ConfigError, load_settings
@@ -47,14 +49,21 @@ from recommender.repository import DataUnavailableError, RestaurantRepository
 from recommender.service import RecommendationService
 
 logger = logging.getLogger(__name__)
+# One line per piece of feedback on an explanation, for the evaluation. No free text.
+feedback_logger = logging.getLogger("recommender.feedback")
 
 BUDGET_OPTIONS = ("any", "low", "medium", "high")
 DEFAULT_MIN_RATING = 3.5
 DEFAULT_RATE_LIMIT_PER_MINUTE = 10
+FEEDBACK_PER_MINUTE = 30
 RATE_WINDOW_SECONDS = 60.0
 MAX_LIKED_DISHES = 4
+STATS_TOP = 10
+DEFAULT_WARM_INTERVAL_SECONDS = 60
 UNAVAILABLE_MESSAGE = "Restaurant data isn't available right now. Please try again later."
 RATE_LIMITED_MESSAGE = "Too many searches. Try again in a minute."
+# The LLM provider's reason when its per-minute token limit is used up.
+LLM_RATE_LIMITED = "rate_limited"
 
 
 @dataclass(frozen=True)
@@ -67,6 +76,10 @@ class ApiSettings:
     # How many proxies in front of the app append to X-Forwarded-For: 1 on Railway, 0 locally.
     # Only entries those proxies added are trusted, so a client can't fake its address.
     trusted_proxy_hops: int = 0
+    # Areas whose default search is kept in the cache, so it's instant and makes no LLM call
+    # for diners. Each costs about one LLM search an hour. Empty turns this off.
+    warm_areas: tuple[str, ...] = ()
+    warm_interval_seconds: int = DEFAULT_WARM_INTERVAL_SECONDS
 
     @classmethod
     def from_env(cls, env: dict[str, str] | None = None) -> ApiSettings:
@@ -79,7 +92,107 @@ class ApiSettings:
         regex = env.get("ALLOWED_ORIGIN_REGEX", "").strip() or None
         limit = _whole_number(env, "RATE_LIMIT_PER_MINUTE", DEFAULT_RATE_LIMIT_PER_MINUTE)
         hops = _whole_number(env, "TRUSTED_PROXY_HOPS", 0)
-        return cls(origins, regex, limit, hops)
+        warm = tuple(a.strip() for a in env.get("WARM_CACHE_AREAS", "").split(",") if a.strip())
+        interval = _whole_number(env, "WARM_CACHE_INTERVAL_SECONDS", DEFAULT_WARM_INTERVAL_SECONDS)
+        return cls(origins, regex, limit, hops, warm, max(1, interval))
+
+
+class Feedback(BaseModel):
+    """A diner's thumbs up or down on one result's explanation."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid", str_strip_whitespace=True)
+
+    restaurant: str = Field(min_length=1, max_length=200)
+    rank: int = Field(ge=1, le=20)
+    helpful: bool
+    ai_ranked: bool = True
+
+
+@dataclass
+class UsageStats:
+    """Counts since the server started, for seeing what diners search for. Nothing personal."""
+
+    started: float = field(default_factory=time.time)
+    searches: int = 0
+    ai_ranked: int = 0
+    cache_hits: int = 0
+    fallbacks: Counter[str] = field(default_factory=Counter)
+    areas: Counter[str] = field(default_factory=Counter)
+    cuisines: Counter[str] = field(default_factory=Counter)
+    dishes: Counter[str] = field(default_factory=Counter)
+    budgets: Counter[str] = field(default_factory=Counter)
+    feedback: Counter[str] = field(default_factory=Counter)
+    _lock: threading.Lock = field(default_factory=threading.Lock)
+
+    def record_search(self, preferences: Preferences, result: Any) -> None:
+        with self._lock:
+            self.searches += 1
+            self.ai_ranked += int(result.ai_ranked)
+            self.cache_hits += int(result.diagnostics.cache_hit)
+            if result.failure_reason:
+                self.fallbacks[result.failure_reason] += 1
+            self.areas[preferences.area] += 1
+            self.budgets[preferences.budget] += 1
+            self.cuisines.update(preferences.cuisines)
+            self.dishes.update(preferences.dishes)
+
+    def record_feedback(self, helpful: bool) -> None:
+        with self._lock:
+            self.feedback["helpful" if helpful else "not_helpful"] += 1
+
+    def snapshot(self) -> dict[str, Any]:
+        def top(counter: Counter[str]) -> list[dict[str, Any]]:
+            return [{"name": k, "count": v} for k, v in counter.most_common(STATS_TOP)]
+
+        with self._lock:
+            return {
+                "since": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(self.started)),
+                "searches": self.searches,
+                "ai_ranked": self.ai_ranked,
+                "cache_hits": self.cache_hits,
+                "fallbacks": dict(self.fallbacks),
+                "top_areas": top(self.areas),
+                "top_cuisines": top(self.cuisines),
+                "top_dishes": top(self.dishes),
+                "budgets": dict(self.budgets),
+                "feedback": {
+                    "helpful": self.feedback["helpful"],
+                    "not_helpful": self.feedback["not_helpful"],
+                },
+            }
+
+
+def warm_cache(
+    service: RecommendationService,
+    areas: tuple[str, ...],
+    interval_seconds: float,
+    stop: threading.Event,
+) -> None:
+    """Keep each area's default search in the cache, one LLM call at a time.
+
+    Areas already cached are skipped, so each costs about one LLM search per cache lifetime
+    (an hour). Waiting between searches leaves most of the provider's per-minute token limit
+    for diners.
+    """
+    known = [a for a in areas if a in service.repository.metadata.areas]
+    unknown = sorted(set(areas) - set(known))
+    if unknown:
+        logger.warning("WARM_CACHE_AREAS names unknown areas, which are skipped: %s", unknown)
+    if not known or service.llm_client is None:
+        return
+    while not stop.is_set():
+        for area in known:
+            preferences = Preferences(area=area, min_rating=DEFAULT_MIN_RATING)
+            if service.is_cached(preferences):
+                continue
+            try:
+                service.recommend(preferences)
+            except Exception:  # noqa: BLE001 - warming must never stop the server
+                logger.exception("Couldn't warm the cache for %s", area)
+            if stop.wait(interval_seconds):
+                return
+        if stop.wait(interval_seconds):
+            return
 
 
 def _whole_number(env: dict[str, str], name: str, default: int) -> int:
@@ -202,6 +315,11 @@ def create_app(
 ) -> FastAPI:
     """Build the app. Tests pass their own service factory and settings."""
     state: dict[str, Any] = {"service": None}
+    settings = api_settings or ApiSettings.from_env()
+    limiter = RateLimiter(settings.rate_limit_per_minute)
+    feedback_limiter = RateLimiter(FEEDBACK_PER_MINUTE)
+    stats = UsageStats()
+    stop_warming = threading.Event()
 
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
@@ -212,10 +330,17 @@ def create_app(
             # Keep serving, so /health can report the problem and the host keeps the old
             # deployment instead of this one.
             logger.error("The service couldn't start: %s", error)
+        if state["service"] is not None and settings.warm_areas:
+            threading.Thread(
+                target=warm_cache,
+                args=(state["service"], settings.warm_areas, settings.warm_interval_seconds),
+                kwargs={"stop": stop_warming},
+                name="warm-cache",
+                daemon=True,
+            ).start()
         yield
+        stop_warming.set()
 
-    settings = api_settings or ApiSettings.from_env()
-    limiter = RateLimiter(settings.rate_limit_per_minute)
     app = FastAPI(
         title="BLB API",
         summary="Restaurant recommendations for Bangalore",
@@ -227,7 +352,7 @@ def create_app(
         CORSMiddleware,
         allow_origins=list(settings.allowed_origins),
         allow_origin_regex=settings.allowed_origin_regex,
-        allow_methods=["GET", "POST"],
+        allow_methods=["GET", "POST"],  # /feedback is a POST too
         allow_headers=["Content-Type"],
         max_age=600,
     )
@@ -280,6 +405,7 @@ def create_app(
             result = current.recommend(preferences)
         except InvalidPreferencesError as error:
             raise HTTPException(status_code=422, detail=str(error)) from error
+        stats.record_search(preferences, result)
         bands = current.repository.metadata.budget_bands
         return JSONResponse(
             {
@@ -287,6 +413,9 @@ def create_app(
                 "relaxations": [r.message for r in result.relaxations],
                 "notice": result.notice,
                 "ai_ranked": result.ai_ranked,
+                # True when the AI was skipped only because the provider's per-minute limit was
+                # reached, so the page can suggest trying again shortly.
+                "ai_busy": result.failure_reason == LLM_RATE_LIMITED,
                 "summary": result.summary,
                 "results": [
                     result_json(position, item, preferences)
@@ -294,5 +423,28 @@ def create_app(
                 ],
             }
         )
+
+    @app.post("/feedback", status_code=204)
+    def feedback(item: Feedback, request: Request) -> Response:
+        wait = feedback_limiter.check(client_address(request, settings.trusted_proxy_hops))
+        if wait is not None:
+            return JSONResponse(
+                {"detail": "Too much feedback. Try again in a minute."},
+                status_code=429,
+                headers={"Retry-After": str(int(wait + 0.999))},
+            )
+        stats.record_feedback(item.helpful)
+        record = {
+            "restaurant": item.restaurant,
+            "rank": item.rank,
+            "helpful": item.helpful,
+            "ai_ranked": item.ai_ranked,
+        }
+        feedback_logger.info("feedback %s", json.dumps(record, sort_keys=True))
+        return Response(status_code=204)
+
+    @app.get("/stats")
+    def usage() -> dict[str, Any]:
+        return stats.snapshot()
 
     return app

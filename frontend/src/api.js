@@ -48,6 +48,7 @@ async function request(path, { method = "GET", body, timeout = OTHER_TIMEOUT_MS 
   }
 
   let data = null;
+  if (response.status === 204) return null;
   try {
     data = await response.json();
   } catch {
@@ -69,3 +70,5 @@ export const getHealth = () => request("/health");
 export const getOptions = () => request("/options");
 export const recommend = (preferences) =>
   request("/recommend", { method: "POST", body: preferences, timeout: SEARCH_TIMEOUT_MS });
+/** Thumbs up or down on one result's explanation. The reply has no body. */
+export const sendFeedback = (feedback) => request("/feedback", { method: "POST", body: feedback });

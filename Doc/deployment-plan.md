@@ -216,6 +216,38 @@ These include the exit criteria of the implementation plan's Phase 7.
 - [ ] Someone else can follow the README from a fresh checkout
 - [ ] Rollback has been tried on both platforms
 
+## Phase 6: Experience Improvements
+
+**Goal:** Make the hosted page quicker to use, especially on a phone, and start collecting feedback. Added on 2026-11-14, after launch.
+
+### Tasks
+
+- [x] **Phone layout:** after a search on a narrow screen, shrink the form to a one-line summary with "Edit search", and bring the results into view
+- [x] **Card actions:** Directions (a Google Maps search link, no key), Share (Web Share, or copy a link), Save, and More like this (same main cuisine and price band, same area)
+- [x] **Example searches** on the empty page, checked against `/options` so none can be invalid
+- [x] **Loading:** placeholder cards and a step line ("Finding places…", "Ranking with AI…") instead of a lone spinner
+- [x] **Shareable searches:** keep each search in the page address; the Back button returns to the previous search
+- [x] **Remember the last search** in the browser's local storage
+- [x] **Refine buttons:** Cheaper, a higher rating, Include new places, Clear filters
+- [x] **Explain the AI-busy fallback:** `ai_busy` on `/recommend`, and a notice with Try again
+- [x] **Shortlist** with a side-by-side comparison, kept in local storage
+- [x] **Search in your own words:** `frontend/src/parse.js`, matched in the browser against the real lists, so no LLM call
+- [x] **Feedback:** 👍 / 👎 per explanation, through `POST /feedback`
+- [x] **Look:** "Top pick" on the first result, ratings coloured by band, cuisine icons
+- [x] **Warm cache (off by default):** `WARM_CACHE_AREAS` keeps chosen areas' default searches cached
+- [x] **Usage counts:** `GET /stats`
+- [x] Dropdowns for area, cuisine and dish that open on click and grow the item under the cursor
+
+### Not done, and why
+
+- **"Include nearby areas":** each Zomato area listing already includes restaurants from nearby areas (marked "Near …"), so a separate option would change little.
+- **Turning the cache warmer on:** it costs about one Groq search per named area per hour, which competes with diners on the free plan. Decide on the Groq plan first.
+
+### Tests
+
+- [x] 7 new API tests: `ai_busy`, stats counting, feedback validation and its own limit, warm-cache settings and behaviour. All 481 tests pass.
+- [x] In a browser against the local API: own-words search, URL update, loading placeholders, cards with every new part, Save, the shortlist, feedback reaching `/stats`, Refine, Back, opening a shared link, and the phone layout at 375 px with no sideways scrolling
+
 ## API Contract
 
 All responses are JSON. Text fields are plain text; the frontend escapes them.
@@ -295,7 +327,35 @@ Response:
 - `review` holds the customer's own text, cut to about two lines.
 - An empty `results` list means nothing matched, even after loosening the limits.
 
+- `ai_busy` is `true` when the AI was skipped only because the provider's per-minute limit was reached, so the page can suggest trying again in a minute. It is `false` otherwise, including for other AI failures.
+
 Errors: `422` invalid request, `429` too many searches (with `Retry-After`), `503` data unavailable. Each has a plain `"detail"` message.
+
+### `POST /feedback`
+
+A thumbs up or down on one result's explanation, for the evaluation:
+
+```json
+{ "restaurant": "Jose's Mess", "rank": 1, "helpful": true, "ai_ranked": true }
+```
+
+Returns `204` with no body. Each piece is counted in `/stats` and written to the log as one `feedback {...}` line with no free text. Limited to 30 a minute per client, separately from searches.
+
+### `GET /stats`
+
+Counts since the server last started. They reset on each deploy, so read them before redeploying if you need them.
+
+```json
+{
+  "since": "2026-11-14T09:00:00Z",
+  "searches": 42, "ai_ranked": 37, "cache_hits": 9,
+  "fallbacks": { "rate_limited": 5 },
+  "top_areas": [{ "name": "BTM", "count": 12 }],
+  "top_cuisines": [], "top_dishes": [{ "name": "Biryani", "count": 8 }],
+  "budgets": { "any": 30, "low": 12 },
+  "feedback": { "helpful": 6, "not_helpful": 1 }
+}
+```
 
 ## Environment Variables
 
@@ -315,6 +375,8 @@ Errors: `422` invalid request, `429` too many searches (with `Retry-After`), `50
 | `ALLOWED_ORIGIN_REGEX` | Empty | New. Optional pattern, such as one for Vercel preview URLs |
 | `RATE_LIMIT_PER_MINUTE` | `10` | New. Searches per client per minute. |
 | `TRUSTED_PROXY_HOPS` | `1` | New. Proxies that add to `X-Forwarded-For`, so the limit sees each diner's address |
+| `WARM_CACHE_AREAS` | Empty (off) | Optional. Comma-separated areas whose default search is kept cached. Each costs about one Groq search an hour, so on the free plan name only a few, such as `BTM,Indiranagar,Koramangala 5th Block`. |
+| `WARM_CACHE_INTERVAL_SECONDS` | `60` | Optional. Wait between warm-up searches, leaving most of Groq's per-minute limit for diners. |
 | `PORT` | Set by Railway | Don't set it yourself |
 
 ### Vercel (frontend)

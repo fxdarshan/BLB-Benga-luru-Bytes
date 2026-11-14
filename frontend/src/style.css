@@ -350,3 +350,167 @@ input[type="range"] { width: 100%; min-height: 28px; }
   .card { padding: 16px; }
   .card-title h3 { font-size: 17px; }
 }
+
+/* ---------- Header actions: AI status and the shortlist ---------- */
+.header-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.saved-button {
+  display: inline-flex; align-items: center; gap: 8px; min-height: 36px; padding: 6px 14px;
+  border: 1px solid var(--border-field); border-radius: 999px; background: transparent;
+  color: var(--text-label); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer;
+}
+.saved-button:hover { border-color: var(--accent); color: var(--accent-text); }
+.saved-count {
+  min-width: 20px; padding: 1px 6px; border-radius: 999px; background: var(--accent-soft);
+  color: var(--accent-text); font-size: 12px; text-align: center;
+}
+
+/* ---------- Small buttons ---------- */
+.btn-secondary {
+  align-self: flex-start; min-height: 40px; padding: 8px 16px; border-radius: 10px; cursor: pointer;
+  border: 1px solid var(--border-field); background: var(--field); color: var(--text); font: inherit; font-weight: 600;
+}
+.btn-secondary:hover { border-color: var(--accent); }
+.link-button {
+  border: 0; background: none; padding: 4px 2px; color: var(--accent-text); font: inherit; font-size: 13px;
+  font-weight: 600; cursor: pointer; text-decoration: underline; text-underline-offset: 3px;
+}
+.icon-button {
+  width: 36px; height: 36px; border: 0; border-radius: 8px; background: transparent; color: var(--text-muted);
+  font-size: 16px; cursor: pointer;
+}
+.icon-button:hover { background: var(--field); color: var(--text); }
+
+/* ---------- Own words ---------- */
+.words-row { display: flex; gap: 8px; }
+.words-row .input { flex: 1; min-width: 0; }
+.words-go {
+  flex: none; min-width: 56px; height: 46px; border: 1px solid var(--accent); border-radius: var(--radius-field);
+  background: var(--accent-soft); color: var(--accent-text); font: inherit; font-weight: 700; cursor: pointer;
+}
+.words-go:hover:not(:disabled) { background: var(--accent); color: var(--on-accent); }
+.words-go:disabled { opacity: 0.5; cursor: default; }
+
+/* ---------- The form shrunk to one line on a phone ---------- */
+.form-summary {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  font-size: 14px; color: var(--text-label);
+}
+.form-summary[hidden] { display: none; }
+.form-summary-text { min-width: 0; overflow-wrap: anywhere; font-weight: 600; }
+.search-form.collapsed { padding: 14px 16px; gap: 8px; }
+.search-form.collapsed > :not(.form-summary):not(.form-status) { display: none; }
+.search-form.collapsed .form-status:empty { display: none; }
+
+/* ---------- Example searches ---------- */
+.examples { display: flex; flex-wrap: wrap; gap: 10px; }
+.example-chip {
+  min-height: 40px; padding: 8px 14px; border-radius: 999px; cursor: pointer;
+  border: 1px solid var(--border-field); background: var(--surface); color: var(--text-label);
+  font: inherit; font-size: 14px; font-weight: 600;
+  transition: transform 0.12s ease, border-color 0.12s ease;
+}
+.example-chip:hover { border-color: var(--accent); color: var(--accent-text); }
+@media (hover: hover) { .example-chip:hover { transform: scale(1.05); } }
+
+/* ---------- Loading ---------- */
+.loading { display: flex; flex-direction: column; gap: 16px; }
+.loading-step { display: flex; align-items: center; gap: 10px; color: var(--text-muted); font-size: 14px; }
+.skeleton-card {
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-card);
+  padding: 20px 22px; display: flex; flex-direction: column; gap: 12px;
+}
+.sk {
+  height: 14px; border-radius: 6px;
+  background: linear-gradient(90deg, var(--field) 0%, var(--rank) 50%, var(--field) 100%);
+  background-size: 200% 100%; animation: shimmer 1.4s ease-in-out infinite;
+}
+.sk-title { width: 45%; height: 20px; }
+.sk-line { width: 80%; }
+.sk-line.short { width: 55%; }
+.sk-block { height: 48px; }
+@keyframes shimmer { from { background-position: 100% 0; } to { background-position: -100% 0; } }
+
+/* ---------- Refine ---------- */
+.refine { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.refine-button {
+  min-height: 34px; padding: 6px 12px; border-radius: 999px; cursor: pointer;
+  border: 1px dashed var(--border-field); background: transparent; color: var(--text-label);
+  font: inherit; font-size: 13px; font-weight: 600;
+}
+.refine-button:hover { border-style: solid; border-color: var(--accent); color: var(--accent-text); }
+.notice .link-button { margin-left: auto; white-space: nowrap; }
+
+/* ---------- Cards: top pick, rating colours, icons, actions and feedback ---------- */
+.card.top-pick { border-color: rgba(245, 165, 36, 0.55); box-shadow: inset 4px 0 0 var(--accent); }
+.top-pick-badge {
+  padding: 3px 8px; border-radius: 999px; background: var(--accent); color: var(--on-accent);
+  font-size: 11px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; white-space: nowrap;
+}
+.rating.band-ok { background: var(--warn-bg); color: var(--warn-text); }
+.rating.band-ok .votes { color: #d9b77a; }
+.rating.band-low { background: var(--unrated-bg); color: var(--unrated-text); }
+.rating.band-low .votes { color: var(--text-muted); }
+.cuisine-icon { font-size: 18px; line-height: 1; }
+
+.card-actions { display: flex; flex-wrap: wrap; gap: 8px; padding-top: 4px; }
+.action {
+  display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 6px 12px;
+  border: 1px solid var(--border-field); border-radius: 999px; background: var(--field); color: var(--text-label);
+  font: inherit; font-size: 13px; font-weight: 600; text-decoration: none; cursor: pointer;
+}
+.action:hover { border-color: var(--accent); color: var(--accent-text); }
+.save-button[aria-pressed="true"] { border-color: var(--accent); color: var(--accent-text); background: var(--accent-soft); }
+.save-button[aria-pressed="true"] svg { fill: currentColor; }
+
+.feedback { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text-faint); }
+.feedback-label { margin-right: 4px; }
+.feedback-button {
+  width: 36px; height: 32px; border: 1px solid var(--border-field); border-radius: 8px;
+  background: transparent; font-size: 15px; cursor: pointer;
+}
+.feedback-button:hover:not(:disabled) { border-color: var(--accent); }
+.feedback-button:disabled { cursor: default; opacity: 0.5; }
+.feedback-button[aria-pressed="true"] { opacity: 1; border-color: var(--accent); background: var(--accent-soft); }
+
+/* ---------- Shortlist dialog ---------- */
+.saved-dialog {
+  width: min(920px, calc(100vw - 32px)); max-height: calc(100vh - 64px); padding: 20px 22px;
+  border: 1px solid var(--border); border-radius: var(--radius-card); background: var(--surface); color: var(--text);
+}
+.saved-dialog::backdrop { background: rgba(0, 0, 0, 0.6); }
+.saved-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+.saved-head h2 { font-size: 20px; }
+#saved-body { display: flex; flex-direction: column; gap: 14px; }
+.table-wrap { overflow-x: auto; }
+.compare { width: 100%; border-collapse: collapse; font-size: 14px; }
+.compare th {
+  text-align: left; font-size: 12px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase;
+  color: var(--text-faint); padding: 8px 10px; border-bottom: 1px solid var(--border-field);
+}
+.compare td { padding: 10px; border-bottom: 1px solid var(--rank); color: var(--text-body); vertical-align: top; }
+.compare-name { font-weight: 700; color: var(--text); }
+.compare-actions { white-space: nowrap; }
+.compare-actions .link-button + .link-button { margin-left: 10px; }
+
+/* ---------- Toast ---------- */
+.toast {
+  position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 50;
+  max-width: calc(100vw - 32px); padding: 10px 16px; border-radius: 10px;
+  background: var(--text); color: var(--bg); font-size: 14px; font-weight: 600;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.4);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sk { animation: none; }
+  .example-chip { transition: none; }
+}
+
+@media (max-width: 600px) {
+  .header-actions { width: 100%; justify-content: space-between; }
+  .saved-dialog { padding: 16px; }
+  /* The comparison becomes one block per restaurant. */
+  .compare thead { display: none; }
+  .compare, .compare tbody, .compare tr, .compare td { display: block; width: 100%; }
+  .compare tr { padding: 10px 0; border-bottom: 1px solid var(--border-field); }
+  .compare td { padding: 2px 0; border: 0; }
+}

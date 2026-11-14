@@ -665,6 +665,7 @@ Each milestone leaves something that can be run.
 Add these only if evaluation or real use shows a need:
 
 - **Semantic review search:** If keyword scoring misses soft preferences, use embeddings to find relevant reviews.
-- **REST API:** Wrap `service.py` in FastAPI if another client needs it.
-- **Conversational refinement:** Support follow-ups such as "something cheaper", which needs session state and multi-turn calls.
+- **REST API:** Done. `api.py` wraps `service.py` in FastAPI for the web frontend; see the [deployment plan](deployment-plan.md#api-contract).
+- **Conversational refinement:** Partly done without session state: the web page's Refine buttons (Cheaper, a higher rating, Include new places) and "More like this" re-run the search with one change. Free-form follow-ups would still need multi-turn calls.
+- **Free-text search:** Done in the browser. `frontend/src/parse.js` turns a sentence into the form's values by matching the real area, cuisine and dish lists, so it needs no LLM call.
 - **Additional cities:** Requires a new dataset with a multi-city schema.

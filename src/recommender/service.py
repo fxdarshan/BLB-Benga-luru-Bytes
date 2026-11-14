@@ -104,6 +104,12 @@ class RecommendationService:
             }
         )
 
+    def is_cached(self, preferences: Preferences) -> bool:
+        """True if this search has an unexpired AI-ranked result in the cache."""
+        key = self.cache_key(preferences)
+        with self._cache_lock:
+            return key in self._cache
+
     def recommend(
         self, preferences: Preferences, *, use_cache: bool = True
     ) -> RecommendationResult:

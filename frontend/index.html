@@ -25,15 +25,45 @@
             <span class="brand-tagline">Tell us what you're looking for, and we'll suggest where to eat.</span>
           </div>
         </div>
-        <div class="status-pill" id="status" hidden>
-          <span class="status-dot" id="status-dot"></span><span id="status-text"></span>
+        <div class="header-actions">
+          <div class="status-pill" id="status" hidden>
+            <span class="status-dot" id="status-dot"></span><span id="status-text"></span>
+          </div>
+          <button type="button" class="saved-button" id="saved-button" aria-haspopup="dialog">
+            <span aria-hidden="true">♥</span> Saved <span class="saved-count" id="saved-count">0</span>
+          </button>
         </div>
       </div>
     </header>
 
+    <dialog class="saved-dialog" id="saved-dialog" aria-labelledby="saved-title">
+      <div class="saved-head">
+        <h2 id="saved-title">Your shortlist</h2>
+        <button type="button" class="icon-button" id="saved-close" aria-label="Close">✕</button>
+      </div>
+      <div id="saved-body"></div>
+    </dialog>
+
+    <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
     <main class="layout">
       <form class="search-form" id="search-form" novalidate>
+        <!-- Shown instead of the form on a phone after a search. -->
+        <div class="form-summary" id="form-summary" hidden>
+          <span class="form-summary-text" id="form-summary-text"></span>
+          <button type="button" class="link-button" id="edit-search">Edit search</button>
+        </div>
+
         <h2>Find a place to eat</h2>
+
+        <div class="field words-field">
+          <label class="field-label" for="words">Describe it in your own words <span class="optional">(optional)</span></label>
+          <div class="words-row">
+            <input id="words" class="input" maxlength="300" autocomplete="off" placeholder="e.g. cheap biryani in BTM, rated 4+" aria-describedby="words-hint" />
+            <button type="button" class="words-go" id="words-go" aria-label="Fill the form from this and search">Go</button>
+          </div>
+          <span class="field-hint" id="words-hint">Fills in the form below and searches. You can still change anything.</span>
+        </div>
 
         <div class="field">
           <label class="field-label" id="area-label" for="area">Area in Bangalore</label>

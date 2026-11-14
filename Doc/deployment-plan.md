@@ -200,7 +200,7 @@ The fallback, if builds become too slow, is a Railway volume mounted at `/app/da
 ### Tasks
 
 - [ ] **Costs:** set the Groq spend limit and Railway's usage limit, and check both dashboards after the first day
-- [ ] **Monitoring:** use Railway's logs and metrics for errors, latency and memory, and add a free uptime check on `/health`
+- [x] **Monitoring:** use Railway's logs and metrics for errors, latency and memory, and add a free uptime check on `/health`. *The `Uptime` workflow checks the site and `/health` every 15 minutes and opens a GitHub issue when either is down; `/health` reports how the last AI call went. Error tracking such as Sentry would need an account.*
 - [ ] **Rate limit:** confirm it holds against a burst of searches from one client, and check in Railway's logs that `TRUSTED_PROXY_HOPS=1` picks out the diner's address rather than the proxy's
 - [ ] **Secrets:** search the repository, build logs, runtime logs and the built frontend for the API key, and confirm none appears
 - [x] **README:** write `README.md` covering local setup, ingestion, running the API, Streamlit app and frontend, tests, and both deployments
@@ -272,6 +272,7 @@ These include the exit criteria of the implementation plan's Phase 7.
 - [x] **Instant results:** `POST /shortlist` returns the search ranked by score in milliseconds. The page shows it under a note that the AI is ranking, then swaps in the AI's picks; if the AI request fails, the shortlist stays with a Try again button
 - [x] **Fallback model:** on a Groq rate limit, the ranking is retried once on `openai/gpt-oss-20b` (`LLM_FALLBACK_MODEL`), which Groq limits separately
 - [x] **Shared calls:** identical searches that arrive together wait for one LLM call and share its result
+- [x] **Monitoring:** `/health` adds `last_ai_call` (ok or the failure reason, model and time), and the `Uptime` workflow opens and closes a GitHub issue when the site or API goes down and comes back
 - [x] **Frontend split and tested:** `main.js` went from 1,364 lines to 896, with `dom.js`, `pickers.js` and `search-logic.js` beside it; 16 unit tests run with `npm test` in CI
 - [x] **Safe deploy order:** API changes are additive and go first, and the page treats a missing endpoint or field as absent; no `/v1/` prefix, since the page is the only client. Vercel's skip rule moved into `frontend/vercel.json` (`scripts/ignore-build.sh`) and compares `frontend/` with the commit Vercel last deployed, so a pull request that changed the page in an earlier commit still gets a preview
 - [x] **Data built only when ingestion changes:** the Dockerfile's data stage copies only the modules ingestion imports, so API changes reuse the cached data layer

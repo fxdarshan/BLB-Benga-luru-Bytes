@@ -65,6 +65,7 @@ def test_health_reports_the_build_and_whether_ai_ranking_is_on():
             "status": "ok",
             "build_id": "test-build",
             "ai_ranking": True,
+            "last_ai_call": None,
         }
     with client_for(None) as client:
         assert client.get("/health").json()["ai_ranking"] is False
@@ -392,3 +393,20 @@ def test_stats_report_the_ai_tokens_used_today():
         client.post("/recommend", json=SEARCH)
         budget = client.get("/stats").json()["ai_budget"]
     assert budget == {"tokens_today": 3800, "daily_limit": None}
+
+
+def test_health_reports_how_the_last_ai_call_went():
+    with client_for(good_ranker()) as client:
+        assert client.get("/health").json()["last_ai_call"] is None
+        client.post("/recommend", json=SEARCH)
+        ok = client.get("/health").json()["last_ai_call"]
+    assert ok["ok"] is True and ok["reason"] is None
+    assert ok["model"] == "claude-opus-5-5" and ok["fallback_model_used"] is False
+    assert ok["at"].endswith("Z")
+    with client_for(FakeRanker(error=LLMUnavailable("authentication"))) as client:
+        client.post("/recommend", json=SEARCH)
+        failed = client.get("/health").json()
+    # The key is set, so ai_ranking stays true, but the last call shows it doesn't work.
+    assert failed["ai_ranking"] is True
+    assert failed["last_ai_call"]["ok"] is False
+    assert failed["last_ai_call"]["reason"] == "authentication"

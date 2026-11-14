@@ -21,7 +21,7 @@ It's a web app: a FastAPI backend (`src/recommender/api.py`) on Railway and a st
 | **Remembers the last search** | The form is filled in with your last search when you come back. Kept in this browser only. |
 | **Nothing matched** | The empty screen offers one-tap ways to widen the search, worked out from it: without the dish, any cuisine, any budget, a lower rating, new places, or a neighbouring area such as another Koramangala block. |
 | **Show more matches** | Below the AI's picks, adds the next 5 restaurants by rating, up to 20, under "More matches, ranked by rating". They come from `/shortlist?limit=20`, so they make no AI call. |
-| **Refine** | One-tap buttons above the results: Pocket friendly (the next budget down), a higher minimum rating, Include new places, and Clear filters. |
+| **Refine** | One-tap buttons above the results: Pocket friendly (the next budget down), a higher minimum rating, Include new places, and Clear filters. On a wide screen, the title, "Results for" chips and these buttons stay at the top while the list scrolls, with a shadow once they stick. |
 | **Phone layout** | After a search on a narrow screen, the form shrinks to a one-line summary with "Edit search", so the results are in view. |
 | **Card actions** | Directions (opens Google Maps, no key needed), Share (the phone's share sheet, or copies a link), Save, and More like this (same main cuisine and price band in the same area). |
 | **Shortlist** | ♥ Saved in the header opens your saved places side by side: rating, price for two, cuisines and area. Kept in this browser only. |

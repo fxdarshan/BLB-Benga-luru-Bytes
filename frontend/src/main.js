@@ -1010,10 +1010,17 @@ function renderResults(
   chips.append(withIcon("span", "chips-label", "filter", "Results for:", 13));
   for (const part of data.search_summary) chips.append(el("span", "chip", part));
 
-  const nodes = [head, rise(chips, 0)];
+  // The title, chips and Refine stay at the top of the screen on a wide one, to change the
+  // search from anywhere in a long list. The marker before them says when they've stuck.
+  const bar = el("div", "results-bar");
+  bar.append(head, chips);
   // Refine narrows a search, so it's no help when nothing matched: that shows ways to widen it.
   const refine = count ? refineBar(search) : null;
-  if (refine) nodes.push(rise(refine, 0));
+  if (refine) bar.append(refine);
+  const marker = el("div", "results-bar-marker");
+  marker.setAttribute("aria-hidden", "true");
+  watchStuck(marker, bar);
+  const nodes = [marker, rise(bar, 0)];
   if (state.wordsNote) nodes.push(rise(notice(state.wordsNote), 0));
   state.wordsNote = "";
   for (const message of data.relaxations) nodes.push(rise(notice(message), 0));
@@ -1056,6 +1063,16 @@ function renderResults(
 
 /** Swap in new results without a jump: the card being read stays where it is on screen, cards
  *  the old and new results share slide to their new places, and new ones fade in. */
+let stuckWatcher = null;
+function watchStuck(marker, bar) {
+  stuckWatcher?.disconnect();
+  if (!("IntersectionObserver" in window)) return;
+  stuckWatcher = new IntersectionObserver(([entry]) => {
+    bar.classList.toggle("stuck", !entry.isIntersecting && entry.boundingClientRect.top < 0);
+  });
+  stuckWatcher.observe(marker);
+}
+
 function settle(nodes) {
   const cardTops = () =>
     new Map([...results.querySelectorAll(".card[data-key]")].map((c) => [c.dataset.key, c.getBoundingClientRect().top]));

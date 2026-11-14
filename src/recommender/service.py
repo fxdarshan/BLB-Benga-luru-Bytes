@@ -158,14 +158,16 @@ class RecommendationService:
         self._log_search(key, result, time.perf_counter() - start)
         return result
 
-    def shortlist(self, preferences: Preferences) -> RecommendationResult:
+    def shortlist(self, preferences: Preferences, limit: int | None = None) -> RecommendationResult:
         """The best matches in score order, at once: no LLM call, no cache and no log line.
 
-        The web page shows these while `recommend` has the LLM rank the same search. Raises
-        `InvalidPreferencesError` as `recommend` does.
+        The web page shows these while `recommend` has the LLM rank the same search, and asks for
+        a longer list (`limit`) when the diner wants more. Raises `InvalidPreferencesError` as
+        `recommend` does.
         """
-        selection, base = self._select(preferences)
-        results = [RankedResult(candidate=c) for c in selection.candidates[: self.max_results]]
+        count = limit or self.max_results
+        selection, base = self._select(preferences, max_candidates=max(count, self.max_candidates))
+        results = [RankedResult(candidate=c) for c in selection.candidates[:count]]
         return RecommendationResult(
             results=results, relaxations=selection.relaxations, diagnostics=base
         )
@@ -230,11 +232,13 @@ class RecommendationService:
                 self._flights.pop(key, None)
             flight.done.set()
 
-    def _select(self, preferences: Preferences) -> tuple[CandidateSelection, Diagnostics]:
+    def _select(
+        self, preferences: Preferences, *, max_candidates: int | None = None
+    ) -> tuple[CandidateSelection, Diagnostics]:
         selection = select_candidates(
             preferences,
             self.repository,
-            max_candidates=self.max_candidates,
+            max_candidates=max_candidates or self.max_candidates,
             min_results=self.max_results,
         )
         base = Diagnostics(

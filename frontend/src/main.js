@@ -811,6 +811,48 @@ function loosenBar(search) {
   return bar;
 }
 
+// The most results "Show more matches" can reach, the API's limit for /shortlist.
+const MAX_MATCHES = 20;
+
+/** "Show more matches": the next 5 restaurants by rating, below the AI's picks, until none are
+ *  left. They come from /shortlist, so they make no AI call and have no explanation. */
+function moreMatches(search) {
+  const box = el("div", "more-matches");
+  const button = withIcon("button", "btn-secondary", "similar", "Show more matches", 15);
+  button.type = "button";
+  box.append(button);
+  const run = state.run;
+  let pool = null;
+  button.addEventListener("click", async () => {
+    button.disabled = true;
+    try {
+      pool ??= (await shortlist(search, MAX_MATCHES)).results;
+    } catch {
+      button.disabled = false;
+      toast("Couldn't load more just now. Try again in a moment.");
+      return;
+    }
+    if (run !== state.run) return;
+    const shown = new Set([...results.querySelectorAll(".card[data-key]")].map((c) => c.dataset.key));
+    const left = pool.filter((r) => !shown.has(savedKey(r)));
+    if (!results.querySelector(".more-heading") && left.length) {
+      box.before(withIcon("h3", "more-heading", "star", "More matches, ranked by rating", 16));
+    }
+    const batch = { ai_ranked: false, results: left };
+    left.slice(0, 5).forEach((result, index) => {
+      const next = card({ ...result, rank: shown.size + index + 1 }, batch, search);
+      box.before(rise(next, index));
+    });
+    if (left.length <= 5) {
+      // A full pool may have stopped at the limit rather than at the last match.
+      const end = pool.length >= MAX_MATCHES ? `That's the top ${MAX_MATCHES} for this search.` : "That's every match for this search.";
+      box.replaceChildren(el("p", "more-done", end));
+    }
+    else button.disabled = false;
+  });
+  return box;
+}
+
 /** Shown above the rating-ranked shortlist while the AI ranks the same search. */
 function aiPendingNotice() {
   const box = el("div", "notice ai-pending");
@@ -870,6 +912,8 @@ function renderResults(
       nodes.push(rise(summary, 1));
     }
     data.results.forEach((result, index) => nodes.push(rise(card(result, data, search), index + 2)));
+    // A full page of results may have more behind it. Not while the AI is still ranking.
+    if (count >= 5 && !pending) nodes.push(rise(moreMatches(search), count + 2));
     nodes.push(rise(el("p", "footnote", DATA_NOTE), count + 2));
   }
   if (steady) {

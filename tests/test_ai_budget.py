@@ -140,3 +140,14 @@ def test_no_cap_by_default():
         assert service.recommend(SEARCH, use_cache=False).ai_ranked
     assert service.daily_token_limit == 0
     assert service.tokens_used_today() == 3 * 3800
+
+
+def test_shortlist_can_return_more_than_the_usual_results():
+    many = [make_restaurant(f"r{i:02}", rating=3.6 + i / 100) for i in range(25)]
+    service = RecommendationService(make_repository(*many), max_candidates=8, max_results=5)
+    assert len(service.shortlist(SEARCH).results) == 5
+    longer = service.shortlist(SEARCH, limit=20).results
+    assert len(longer) == 20
+    # The first five are the same five, in the same order.
+    first = [r.candidate.restaurant.restaurant_id for r in service.shortlist(SEARCH).results]
+    assert [r.candidate.restaurant.restaurant_id for r in longer[:5]] == first

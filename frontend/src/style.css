@@ -866,3 +866,12 @@ body, .header, .search-form, .card, .summary, .notice, .input, .select, .tag-box
 .label-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .near-me { font-size: 13px; }
 .near-me:disabled { opacity: 0.7; cursor: progress; }
+
+/* ---------- Show more matches ---------- */
+.more-matches { display: flex; justify-content: center; padding: 4px 0; }
+.more-matches .btn-secondary { display: inline-flex; align-items: center; gap: 8px; align-self: center; }
+.more-heading {
+  display: flex; align-items: center; gap: 8px; margin-top: 8px; font-size: 17px; font-weight: 600;
+}
+.more-heading > svg { color: var(--accent-icon); }
+.more-done { font-size: 14px; color: var(--text-muted); }

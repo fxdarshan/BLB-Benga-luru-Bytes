@@ -174,3 +174,84 @@ def test_live_groq_call_returns_a_valid_ranking():
     reply = ranker.rank("Rank the candidates. Use only the data given.", user)
     assert reply.ranking.recommendations
     assert reply.details.usage["input_tokens"] > 0
+
+
+class ModelAwareGroq(FakeGroq):
+    """Answers each model differently: a reply, or an error to raise."""
+
+    def __init__(self, outcomes):
+        super().__init__()
+        self.outcomes = outcomes
+
+    def _create(self, **request):
+        self.requests.append(request)
+        outcome = self.outcomes[request["model"]]
+        if isinstance(outcome, Exception):
+            raise outcome
+        return SimpleNamespace(parse=lambda: outcome, retries_taken=0)
+
+
+MAIN, SMALL = "openai/gpt-oss-120b", "openai/gpt-oss-20b"
+
+
+def fallback_ranker(outcomes, fallback=SMALL):
+    client = ModelAwareGroq(outcomes)
+    return client, GroqRanker(client, MAIN, "low", fallback)
+
+
+def test_a_rate_limit_is_retried_once_on_the_fallback_model():
+    client, ranker = fallback_ranker(
+        {MAIN: status_error(groq.RateLimitError, 429), SMALL: completion(model=SMALL)}
+    )
+    reply = ranker.rank("system", "user")
+    assert [r["model"] for r in client.requests] == [MAIN, SMALL]
+    assert reply.details.fallback_model_used is True
+    assert reply.details.served_model == SMALL
+    assert reply.ranking.recommendations[0].candidate_id == "R1"
+
+
+def test_capacity_errors_count_as_rate_limits_for_the_fallback():
+    client, ranker = fallback_ranker(
+        {MAIN: status_error(groq.APIStatusError, 498), SMALL: completion(model=SMALL)}
+    )
+    assert ranker.rank("system", "user").details.fallback_model_used is True
+
+
+@pytest.mark.parametrize(
+    "error",
+    [status_error(groq.BadRequestError, 400), status_error(groq.InternalServerError, 500)],
+)
+def test_other_failures_do_not_use_the_fallback(error):
+    client, ranker = fallback_ranker({MAIN: error, SMALL: completion(model=SMALL)})
+    with pytest.raises(LLMUnavailable):
+        ranker.rank("system", "user")
+    assert len(client.requests) == 1
+
+
+def test_a_rate_limited_fallback_reports_the_rate_limit():
+    client, ranker = fallback_ranker(
+        {
+            MAIN: status_error(groq.RateLimitError, 429),
+            SMALL: status_error(groq.RateLimitError, 429),
+        }
+    )
+    with pytest.raises(LLMUnavailable) as raised:
+        ranker.rank("system", "user")
+    assert raised.value.reason == "rate_limited"
+    assert raised.value.details.fallback_model_used is True
+    assert len(client.requests) == 2
+
+
+@pytest.mark.parametrize("fallback", [None, MAIN])
+def test_no_fallback_when_none_is_set_or_it_is_the_main_model(fallback):
+    client, ranker = fallback_ranker({MAIN: status_error(groq.RateLimitError, 429)}, fallback)
+    assert ranker.fallback_model is None
+    with pytest.raises(LLMUnavailable):
+        ranker.rank("system", "user")
+    assert len(client.requests) == 1
+
+
+def test_make_ranker_passes_the_fallback_model():
+    assert make_ranker(load_settings({"GROQ_API_KEY": "test"})).fallback_model == SMALL
+    off = load_settings({"GROQ_API_KEY": "test", "LLM_FALLBACK_MODEL": "none"})
+    assert make_ranker(off).fallback_model is None

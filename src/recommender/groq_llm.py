@@ -53,23 +53,47 @@ def _error_reason(error: Exception) -> str:
 
 
 class GroqRanker:
-    """Ranks candidates with one Groq API call. `client` can be replaced in tests."""
+    """Ranks candidates with one Groq API call. `client` can be replaced in tests.
 
-    def __init__(self, client: Any, model: str, effort: str) -> None:
+    When Groq's per-minute limit stops the main model, the ranking is tried once more on
+    `fallback_model`, which Groq limits separately, before the search falls back to score order.
+    """
+
+    def __init__(
+        self, client: Any, model: str, effort: str, fallback_model: str | None = None
+    ) -> None:
         self.client = client
         self.model = model
         self.effort = EFFORT_FOR_GROQ.get(effort, "medium")
+        self.fallback_model = fallback_model if fallback_model != model else None
 
     @classmethod
-    def from_settings(cls, api_key: str, model: str, effort: str, timeout: float) -> GroqRanker:
+    def from_settings(
+        cls,
+        api_key: str,
+        model: str,
+        effort: str,
+        timeout: float,
+        fallback_model: str | None = None,
+    ) -> GroqRanker:
         client = groq.Groq(api_key=api_key, timeout=timeout, max_retries=MAX_RETRIES)
-        return cls(client, model, effort)
+        return cls(client, model, effort, fallback_model)
 
     def rank(self, system: str, user_message: str) -> LLMReply:
+        try:
+            return self._rank_with(self.model, system, user_message)
+        except LLMUnavailable as error:
+            if error.reason != "rate_limited" or self.fallback_model is None:
+                raise
+        return self._rank_with(self.fallback_model, system, user_message, fallback=True)
+
+    def _rank_with(
+        self, model: str, system: str, user_message: str, *, fallback: bool = False
+    ) -> LLMReply:
         start = time.perf_counter()
         try:
             raw = self.client.chat.completions.with_raw_response.create(
-                model=self.model,
+                model=model,
                 messages=[
                     {"role": "system", "content": system},
                     {"role": "user", "content": user_message},
@@ -85,7 +109,9 @@ class GroqRanker:
             )
             response = raw.parse()
         except groq.GroqError as error:
-            details = CallDetails(latency_seconds=time.perf_counter() - start)
+            details = CallDetails(
+                fallback_model_used=fallback, latency_seconds=time.perf_counter() - start
+            )
             raise LLMUnavailable(_error_reason(error), details) from error
 
         choice = response.choices[0] if response.choices else None
@@ -96,6 +122,7 @@ class GroqRanker:
             usage=_usage(response),
             stop_reason=finish_reason,
             served_model=response.model,
+            fallback_model_used=fallback,
             latency_seconds=time.perf_counter() - start,
             retry_count=getattr(raw, "retries_taken", None),
             request_id=getattr(response, "id", None),

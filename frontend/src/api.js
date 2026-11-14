@@ -70,5 +70,8 @@ export const getHealth = () => request("/health");
 export const getOptions = () => request("/options");
 export const recommend = (preferences) =>
   request("/recommend", { method: "POST", body: preferences, timeout: SEARCH_TIMEOUT_MS });
+/** The same search ranked by rating alone, at once, to show while the AI ranks it. */
+export const shortlist = (preferences) =>
+  request("/shortlist", { method: "POST", body: preferences });
 /** Thumbs up or down on one result's explanation. The reply has no body. */
 export const sendFeedback = (feedback) => request("/feedback", { method: "POST", body: feedback });

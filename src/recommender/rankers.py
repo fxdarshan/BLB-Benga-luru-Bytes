@@ -19,7 +19,7 @@ def make_ranker(settings: Settings) -> Ranker | None:
     if settings.llm_provider == "groq":
         from recommender.groq_llm import GroqRanker
 
-        return GroqRanker.from_settings(*args)
+        return GroqRanker.from_settings(*args, settings.llm_fallback_model)
     from recommender.claude_llm import ClaudeRanker
 
     return ClaudeRanker.from_settings(*args)

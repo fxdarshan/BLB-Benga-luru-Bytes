@@ -4,7 +4,7 @@
 // innerHTML, so it always displays as text. Only the fixed icons below are markup.
 
 import "./style.css";
-import { ApiError, getHealth, getOptions, recommend, sendFeedback } from "./api.js";
+import { ApiError, getHealth, getOptions, recommend, sendFeedback, shortlist } from "./api.js";
 import { cuisineIcon } from "./cuisine-icons.js";
 import { illustration } from "./illustrations.js";
 import { parseSentence } from "./parse.js";
@@ -603,7 +603,9 @@ function toast(text) {
 // ---------- Running a search ----------
 
 async function runSearch(search, { history = "push" } = {}) {
-  if (state.searching || !state.options) return;
+  // A new search may start while one is running (a refine button, an example): the newer one
+  // wins, and the older one's results are ignored when they arrive.
+  if (!state.options) return;
   setSearch(search);
   const current = preferences();
   if (!current.area) return;
@@ -623,14 +625,40 @@ async function runSearch(search, { history = "push" } = {}) {
 
   showStatus("Searching…", { busy: true });
   showLoading(current);
+  // The AI takes seconds; the same search ranked by rating takes milliseconds. Show that first,
+  // then swap in the AI's picks and reasons when they arrive.
+  let quick = null;
+  let aiDone = false;
+  const ai = recommend(current);
+  if (state.aiRanking !== false) {
+    shortlist(current)
+      .then((data) => {
+        if (aiDone || run !== state.run || !data.ai_pending) return;
+        quick = data;
+        clearLoadingTimers();
+        showStatus("Ranking with AI…", { busy: true });
+        renderResults(data, current, { pending: true });
+      })
+      // An API without /shortlist, or a hiccup: the page simply waits for the AI, as before.
+      .catch(() => {});
+  }
   try {
-    const data = await recommend(current);
+    const data = await ai;
+    aiDone = true;
     if (run !== state.run) return;
     showStatus("");
-    renderResults(data, current);
+    // Swap in place: the shortlist already brought the results into view.
+    renderResults(data, current, { scroll: !quick });
   } catch (error) {
+    aiDone = true;
     if (run !== state.run) return;
     const message = errorMessage(error);
+    if (quick) {
+      // Keep the rating-ranked shortlist on screen, and say the AI's ranking didn't come.
+      showStatus("");
+      renderResults(quick, current, { aiError: message, scroll: false });
+      return;
+    }
     showStatus(message, { error: true });
     const retry = el("button", "btn-secondary", "Try again");
     retry.type = "button";
@@ -1175,7 +1203,31 @@ function aiBusyNotice(search) {
   return box;
 }
 
-function renderResults(data, search) {
+/** Shown above the rating-ranked shortlist while the AI ranks the same search. */
+function aiPendingNotice() {
+  const box = el("div", "notice ai-pending");
+  box.setAttribute("role", "status");
+  box.append(
+    el("span", "spinner"),
+    el(
+      "span",
+      "",
+      "These are the best matches by rating. The AI is ranking them now and writing why each one fits.",
+    ),
+  );
+  return box;
+}
+
+function aiFailedNotice(message, search) {
+  const box = notice(`${message} These are ranked by rating instead.`, "warn");
+  const retry = el("button", "link-button", "Try again");
+  retry.type = "button";
+  retry.addEventListener("click", () => runSearch(search, { history: "none" }));
+  box.append(retry);
+  return box;
+}
+
+function renderResults(data, search, { pending = false, aiError = "", scroll = true } = {}) {
   const count = data.results.length;
   const head = el("div", "results-head");
   head.append(withIcon("h2", "results-title", "trophy", "Top picks for you", 22), el("span", "count", `${count} result${count === 1 ? "" : "s"}`));
@@ -1193,7 +1245,9 @@ function renderResults(data, search) {
   if (!count) {
     nodes.push(rise(stateBlock("empty", "Nothing matched", NO_RESULTS_MESSAGE), 1));
   } else {
-    if (data.ai_busy) nodes.push(rise(aiBusyNotice(search), 1));
+    if (pending) nodes.push(rise(aiPendingNotice(), 1));
+    else if (aiError) nodes.push(rise(aiFailedNotice(aiError, search), 1));
+    else if (data.ai_busy) nodes.push(rise(aiBusyNotice(search), 1));
     else if (data.notice) nodes.push(rise(notice(data.notice, "warn"), 1));
     if (data.summary) {
       const summary = el("div", "summary");
@@ -1207,6 +1261,8 @@ function renderResults(data, search) {
   }
   swap(() => {
     results.replaceChildren(...nodes);
+    results.toggleAttribute("data-pending", pending);
+    if (!scroll) return;
     // On a phone the results sit below the form: shrink the form and bring the results into view.
     if (narrowScreen.matches) {
       collapseForm(search);

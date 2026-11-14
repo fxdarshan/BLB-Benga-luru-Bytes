@@ -8,6 +8,8 @@ import json
 import logging
 import threading
 import time
+from collections.abc import Callable
+from dataclasses import dataclass, field
 from typing import Any, Protocol
 
 from cachetools import TTLCache
@@ -36,16 +38,32 @@ search_logger = logging.getLogger("recommender.search")
 NOTICE_NOT_AI_RANKED = (
     "AI explanations are unavailable right now, so these results are ranked by score."
 )
+NOTICE_DAILY_BUDGET = (
+    "AI explanations are paused until tomorrow to keep within today's budget, so these results "
+    "are ranked by score."
+)
 FAILURE_NOT_CONFIGURED = "llm_not_configured"
 FAILURE_NO_VALID_RESULTS = "no_valid_results"
 FAILURE_UNEXPECTED = "unexpected_error"
+FAILURE_DAILY_BUDGET = "daily_budget"
 
 CACHE_TTL_SECONDS = 3600
 CACHE_MAX_ENTRIES = 500
+# How long a search waits for an identical one already running before making its own call.
+# Longer than one LLM call with its retry.
+SHARED_WAIT_SECONDS = 120.0
 
 
 class Ranker(Protocol):
     def rank(self, system: str, user_message: str) -> LLMReply: ...
+
+
+@dataclass
+class _Flight:
+    """A search in progress, which identical searches wait for instead of calling the LLM."""
+
+    done: threading.Event = field(default_factory=threading.Event)
+    result: RecommendationResult | None = None
 
 
 def preferences_key(preferences: Preferences) -> dict[str, Any]:
@@ -78,16 +96,26 @@ class RecommendationService:
         max_results: int = DEFAULT_MIN_RESULTS,
         cache_ttl_seconds: float = CACHE_TTL_SECONDS,
         cache_max_entries: int = CACHE_MAX_ENTRIES,
+        daily_token_limit: int = 0,
+        clock: Callable[[], float] = time.time,
     ) -> None:
         self.repository = repository
         self.llm_client = llm_client
         self.max_candidates = max_candidates
         self.max_results = max_results
+        # Tokens the LLM may use per UTC day. 0 means no cap.
+        self.daily_token_limit = daily_token_limit
+        self._clock = clock
         self._cache: TTLCache[str, RecommendationResult] = TTLCache(
             maxsize=cache_max_entries, ttl=cache_ttl_seconds
         )
         # TTLCache isn't thread-safe, and Streamlit runs each session in its own thread.
         self._cache_lock = threading.Lock()
+        self._flights: dict[str, _Flight] = {}
+        self._flights_lock = threading.Lock()
+        self._budget_lock = threading.Lock()
+        self._budget_day = ""
+        self._tokens_today = 0
 
     def cache_key(self, preferences: Preferences) -> str:
         """Identify a search. Changing the data, model, effort or prompt gives a new key."""
@@ -121,24 +149,72 @@ class RecommendationService:
         """
         start = time.perf_counter()
         key = self.cache_key(preferences)
-        cached = None
-        if use_cache:
-            with self._cache_lock:
-                cached = self._cache.get(key)
-        if cached is not None:
-            diagnostics = dataclasses.replace(cached.diagnostics, cache_hit=True)
-            result = dataclasses.replace(cached, diagnostics=diagnostics)
-        else:
-            # The lock isn't held here, so one slow LLM call never blocks other searches.
-            result = self._search(preferences)
-            # Only AI-ranked results are cached, so a temporary failure isn't repeated.
-            if use_cache and result.ai_ranked:
-                with self._cache_lock:
-                    self._cache[key] = result
+        result = self._from_cache(key) if use_cache else None
+        if result is None:
+            # No lock is held here, so one slow LLM call never blocks other searches.
+            result = self._search_once(key, preferences) if use_cache else self._search(preferences)
         self._log_search(key, result, time.perf_counter() - start)
         return result
 
-    def _search(self, preferences: Preferences) -> RecommendationResult:
+    def shortlist(self, preferences: Preferences) -> RecommendationResult:
+        """The best matches in score order, at once: no LLM call, no cache and no log line.
+
+        The web page shows these while `recommend` has the LLM rank the same search. Raises
+        `InvalidPreferencesError` as `recommend` does.
+        """
+        selection, base = self._select(preferences)
+        results = [RankedResult(candidate=c) for c in selection.candidates[: self.max_results]]
+        return RecommendationResult(
+            results=results, relaxations=selection.relaxations, diagnostics=base
+        )
+
+    def tokens_used_today(self) -> int:
+        """LLM tokens used so far this UTC day, counted only in this process."""
+        with self._budget_lock:
+            self._roll_budget_day()
+            return self._tokens_today
+
+    def _from_cache(self, key: str) -> RecommendationResult | None:
+        with self._cache_lock:
+            cached = self._cache.get(key)
+        if cached is None:
+            return None
+        return dataclasses.replace(
+            cached, diagnostics=dataclasses.replace(cached.diagnostics, cache_hit=True)
+        )
+
+    def _search_once(self, key: str, preferences: Preferences) -> RecommendationResult:
+        """Run a search, unless an identical one is already running: then share its result.
+
+        A shared result made no LLM call of its own, so it is marked as a cache hit. Only
+        AI-ranked results are cached, so a temporary failure isn't repeated for an hour.
+        """
+        with self._flights_lock:
+            flight = self._flights.get(key)
+            leader = flight is None
+            if leader:
+                flight = self._flights[key] = _Flight()
+        if not leader:
+            if flight.done.wait(SHARED_WAIT_SECONDS) and flight.result is not None:
+                shared = flight.result
+                return dataclasses.replace(
+                    shared, diagnostics=dataclasses.replace(shared.diagnostics, cache_hit=True)
+                )
+            # The first search raised or took too long, so make this one's own call.
+            return self._search(preferences)
+        try:
+            result = self._search(preferences)
+            if result.ai_ranked:
+                with self._cache_lock:
+                    self._cache[key] = result
+            flight.result = result
+            return result
+        finally:
+            with self._flights_lock:
+                self._flights.pop(key, None)
+            flight.done.set()
+
+    def _select(self, preferences: Preferences) -> tuple[CandidateSelection, Diagnostics]:
         selection = select_candidates(
             preferences,
             self.repository,
@@ -150,24 +226,55 @@ class RecommendationService:
             applied_budgets=selection.applied_budgets,
             total_matches=selection.total_matches,
         )
+        return selection, base
+
+    def _roll_budget_day(self) -> None:
+        """Start a new count at UTC midnight. Call with the budget lock held."""
+        today = time.strftime("%Y-%m-%d", time.gmtime(self._clock()))
+        if today != self._budget_day:
+            self._budget_day, self._tokens_today = today, 0
+
+    def _within_budget(self) -> bool:
+        if self.daily_token_limit <= 0:
+            return True
+        with self._budget_lock:
+            self._roll_budget_day()
+            return self._tokens_today < self.daily_token_limit
+
+    def _spend(self, call: CallDetails | None) -> None:
+        usage = (call.usage if call else None) or {}
+        tokens = usage.get("input_tokens", 0) + usage.get("output_tokens", 0)
+        if tokens:
+            with self._budget_lock:
+                self._roll_budget_day()
+                self._tokens_today += tokens
+
+    def _search(self, preferences: Preferences) -> RecommendationResult:
+        selection, base = self._select(preferences)
         if not selection.candidates:
             return RecommendationResult(
                 results=[], relaxations=selection.relaxations, diagnostics=base
             )
         if self.llm_client is None:
             return self._score_ranked(selection, FAILURE_NOT_CONFIGURED, base)
+        if not self._within_budget():
+            return self._score_ranked(
+                selection, FAILURE_DAILY_BUDGET, base, notice=NOTICE_DAILY_BUDGET
+            )
 
         prompt = build_prompt(preferences, selection, self.repository.metadata)
         sent = tuple(c.restaurant.restaurant_id for c in prompt.candidates_by_alias.values())
         try:
             reply = self.llm_client.rank(SYSTEM_PROMPT, prompt.user_message)
         except LLMUnavailable as error:
+            self._spend(error.details)
             details = self._with_call(base, sent, error.details)
             return self._score_ranked(selection, error.reason, details)
         except Exception as error:  # noqa: BLE001 - a search must never show a stack trace
             logger.exception("Unexpected error during LLM ranking: %s", type(error).__name__)
             return self._score_ranked(selection, FAILURE_UNEXPECTED, self._with_call(base, sent))
 
+        self._spend(reply.details)
         validated = validate_ranking(
             reply.ranking,
             prompt.candidates_by_alias,
@@ -243,14 +350,19 @@ class RecommendationService:
         )
 
     def _score_ranked(
-        self, selection: CandidateSelection, reason: str, diagnostics: Diagnostics
+        self,
+        selection: CandidateSelection,
+        reason: str,
+        diagnostics: Diagnostics,
+        *,
+        notice: str = NOTICE_NOT_AI_RANKED,
     ) -> RecommendationResult:
         results = [RankedResult(candidate=c) for c in selection.candidates[: self.max_results]]
         return RecommendationResult(
             results=results,
             relaxations=selection.relaxations,
             ai_ranked=False,
-            notice=NOTICE_NOT_AI_RANKED,
+            notice=notice,
             failure_reason=reason,
             diagnostics=diagnostics,
         )

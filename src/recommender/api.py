@@ -45,7 +45,13 @@ from recommender.display import (
     search_summary_parts,
     shorten_review,
 )
-from recommender.models import MAX_ADDITIONAL_CHARS, BudgetBand, Preferences, RankedResult
+from recommender.models import (
+    MAX_ADDITIONAL_CHARS,
+    BudgetBand,
+    Preferences,
+    RankedResult,
+    RecommendationResult,
+)
 from recommender.rankers import make_ranker
 from recommender.repository import DataUnavailableError, RestaurantRepository
 from recommender.service import RecommendationService
@@ -59,6 +65,8 @@ BUDGET_OPTIONS = ("any", "low", "medium", "high")
 DEFAULT_MIN_RATING = 3.5
 DEFAULT_RATE_LIMIT_PER_MINUTE = 10
 FEEDBACK_PER_MINUTE = 30
+# The shortlist makes no LLM call, so it can be generous. The page asks for one per search.
+SHORTLIST_PER_MINUTE = 60
 RATE_WINDOW_SECONDS = 60.0
 MAX_LIKED_DISHES = 4
 DEFAULT_WARM_INTERVAL_SECONDS = 60
@@ -215,6 +223,7 @@ def load_service() -> RecommendationService:
         make_ranker(settings),
         max_candidates=settings.max_candidates,
         max_results=settings.max_results,
+        daily_token_limit=settings.llm_daily_token_limit,
     )
 
 
@@ -263,6 +272,32 @@ def result_json(position: int, item: RankedResult, preferences: Preferences) -> 
     }
 
 
+def results_json(
+    preferences: Preferences, result: RecommendationResult, bands: dict[str, BudgetBand]
+) -> dict[str, Any]:
+    """The body of /recommend and /shortlist: the search, its notices and the result cards."""
+    return {
+        "search_summary": search_summary_parts(preferences, bands),
+        "relaxations": [r.message for r in result.relaxations],
+        "notice": result.notice,
+        "ai_ranked": result.ai_ranked,
+        # True when the AI was skipped only because the provider's per-minute limit was
+        # reached, so the page can suggest trying again shortly.
+        "ai_busy": result.failure_reason == LLM_RATE_LIMITED,
+        "summary": result.summary,
+        "results": [
+            result_json(position, item, preferences)
+            for position, item in enumerate(result.results, start=1)
+        ],
+    }
+
+
+def too_many(message: str, wait: float) -> JSONResponse:
+    return JSONResponse(
+        {"detail": message}, status_code=429, headers={"Retry-After": str(int(wait + 0.999))}
+    )
+
+
 def create_app(
     service_factory: Callable[[], RecommendationService] = load_service,
     api_settings: ApiSettings | None = None,
@@ -272,6 +307,7 @@ def create_app(
     settings = api_settings or ApiSettings.from_env()
     limiter = RateLimiter(settings.rate_limit_per_minute)
     feedback_limiter = RateLimiter(FEEDBACK_PER_MINUTE)
+    shortlist_limiter = RateLimiter(SHORTLIST_PER_MINUTE)
     stats = UsageStore.open(settings.state_dir / DB_FILENAME if settings.state_dir else None)
     stop_warming = threading.Event()
 
@@ -351,43 +387,38 @@ def create_app(
         current = service()
         wait = limiter.check(client_address(request, settings.trusted_proxy_hops))
         if wait is not None:
-            return JSONResponse(
-                {"detail": RATE_LIMITED_MESSAGE},
-                status_code=429,
-                headers={"Retry-After": str(int(wait + 0.999))},
-            )
+            return too_many(RATE_LIMITED_MESSAGE, wait)
         try:
             result = current.recommend(preferences)
         except InvalidPreferencesError as error:
             raise HTTPException(status_code=422, detail=str(error)) from error
         stats.record_search(preferences, result)
-        bands = current.repository.metadata.budget_bands
         return JSONResponse(
-            {
-                "search_summary": search_summary_parts(preferences, bands),
-                "relaxations": [r.message for r in result.relaxations],
-                "notice": result.notice,
-                "ai_ranked": result.ai_ranked,
-                # True when the AI was skipped only because the provider's per-minute limit was
-                # reached, so the page can suggest trying again shortly.
-                "ai_busy": result.failure_reason == LLM_RATE_LIMITED,
-                "summary": result.summary,
-                "results": [
-                    result_json(position, item, preferences)
-                    for position, item in enumerate(result.results, start=1)
-                ],
-            }
+            results_json(preferences, result, current.repository.metadata.budget_bands)
         )
+
+    # The same search ranked by score alone, returned at once. The page shows it while
+    # /recommend has the AI rank the search. It isn't counted in /stats: /recommend is.
+    @app.post("/shortlist")
+    def shortlist(preferences: Preferences, request: Request) -> JSONResponse:
+        current = service()
+        wait = shortlist_limiter.check(client_address(request, settings.trusted_proxy_hops))
+        if wait is not None:
+            return too_many(RATE_LIMITED_MESSAGE, wait)
+        try:
+            result = current.shortlist(preferences)
+        except InvalidPreferencesError as error:
+            raise HTTPException(status_code=422, detail=str(error)) from error
+        body = results_json(preferences, result, current.repository.metadata.budget_bands)
+        # True when /recommend will have the AI rank these, so the page says it's coming.
+        body["ai_pending"] = current.llm_client is not None and bool(result.results)
+        return JSONResponse(body)
 
     @app.post("/feedback", status_code=204)
     def feedback(item: Feedback, request: Request) -> Response:
         wait = feedback_limiter.check(client_address(request, settings.trusted_proxy_hops))
         if wait is not None:
-            return JSONResponse(
-                {"detail": "Too much feedback. Try again in a minute."},
-                status_code=429,
-                headers={"Retry-After": str(int(wait + 0.999))},
-            )
+            return too_many("Too much feedback. Try again in a minute.", wait)
         stats.record_feedback(item.restaurant, item.rank, item.helpful, item.ai_ranked)
         record = {
             "restaurant": item.restaurant,
@@ -401,11 +432,19 @@ def create_app(
     @app.get("/stats")
     def usage() -> dict[str, Any]:
         try:
-            return stats.snapshot()
+            snapshot = stats.snapshot()
         except sqlite3.Error as error:
             logger.exception("Couldn't read the usage store")
             raise HTTPException(
                 status_code=503, detail="Usage counts aren't available right now."
             ) from error
+        current = state["service"]
+        if current is not None:
+            # Counted in memory since the server started, which is fine for a daily cap.
+            snapshot["ai_budget"] = {
+                "tokens_today": current.tokens_used_today(),
+                "daily_limit": current.daily_token_limit or None,
+            }
+        return snapshot
 
     return app

@@ -353,3 +353,42 @@ def test_state_dir_is_read_from_the_environment(tmp_path):
     assert (
         ApiSettings.from_env({"STATE_DIR": "state"}).state_dir == (PROJECT_ROOT / "state").resolve()
     )
+
+
+def test_shortlist_returns_score_ranked_cards_at_once_without_the_llm():
+    ranker = good_ranker()
+    with client_for(ranker) as client:
+        response = client.post("/shortlist", json=SEARCH)
+        stats = client.get("/stats").json()
+    body = response.json()
+    assert response.status_code == 200
+    assert ranker.calls == []
+    assert body["ai_ranked"] is False and body["ai_pending"] is True
+    assert body["notice"] is None and body["summary"] is None
+    # Gamma is unrated, so the default search leaves it out.
+    assert [r["name"] for r in body["results"]] == ["Alpha <b>Bistro</b>", "Beta"]
+    assert all(r["explanation"] is None for r in body["results"])
+    # Only /recommend is counted as a search.
+    assert stats["searches"] == 0
+
+
+def test_shortlist_without_an_llm_has_nothing_pending():
+    with client_for(None) as client:
+        assert client.post("/shortlist", json=SEARCH).json()["ai_pending"] is False
+
+
+def test_shortlist_rejects_invalid_searches_and_has_its_own_limit():
+    with client_for(good_ranker()) as client:
+        assert client.post("/shortlist", json={**SEARCH, "area": "Nowhere"}).status_code == 422
+        codes = [client.post("/shortlist", json=SEARCH).status_code for _ in range(60)]
+        # Searches have their own, smaller limit, untouched by the shortlist's.
+        search = client.post("/recommend", json=SEARCH)
+    assert codes[:59] == [200] * 59 and codes[59] == 429
+    assert search.status_code == 200
+
+
+def test_stats_report_the_ai_tokens_used_today():
+    with client_for(good_ranker()) as client:
+        client.post("/recommend", json=SEARCH)
+        budget = client.get("/stats").json()["ai_budget"]
+    assert budget == {"tokens_today": 3800, "daily_limit": None}

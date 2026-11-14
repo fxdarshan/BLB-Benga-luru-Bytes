@@ -12,6 +12,13 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 VALID_EFFORTS = ("low", "medium", "high", "xhigh", "max")
 # The model used when LLM_MODEL isn't set, for each supported provider.
 DEFAULT_MODELS = {"groq": "openai/gpt-oss-120b", "anthropic": "claude-opus-5-5"}
+# The model tried once when the main one hits its per-minute limit. Groq limits each model
+# separately. Claude has its own server-side fallback, so it needs none here.
+DEFAULT_FALLBACK_MODELS: dict[str, str | None] = {
+    "groq": "openai/gpt-oss-20b",
+    "anthropic": None,
+}
+NO_FALLBACK = ("none", "off")
 API_KEY_NAMES = {"groq": "GROQ_API_KEY", "anthropic": "ANTHROPIC_API_KEY"}
 
 
@@ -29,6 +36,9 @@ class Settings:
     max_candidates: int
     max_results: int
     data_dir: Path
+    llm_fallback_model: str | None = None
+    # Tokens the AI may use per UTC day before searches fall back to score order. 0 means no cap.
+    llm_daily_token_limit: int = 0
 
     @property
     def api_key_name(self) -> str:
@@ -76,6 +86,22 @@ def load_settings(env: dict[str, str] | None = None) -> Settings:
     # Resolving from a fixed base means the app finds its data from any working directory.
     data_dir = PROJECT_ROOT / Path(env.get("DATA_DIR", "./data").strip())
 
+    raw_fallback = env.get("LLM_FALLBACK_MODEL", "").strip()
+    if raw_fallback.lower() in NO_FALLBACK:
+        fallback_model = None
+    else:
+        fallback_model = raw_fallback or DEFAULT_FALLBACK_MODELS[provider]
+
+    raw_limit = env.get("LLM_DAILY_TOKEN_LIMIT", "0").strip() or "0"
+    try:
+        daily_token_limit = int(raw_limit)
+    except ValueError:
+        raise ConfigError(
+            f"LLM_DAILY_TOKEN_LIMIT must be a whole number, got {raw_limit!r}"
+        ) from None
+    if daily_token_limit < 0:
+        raise ConfigError(f"LLM_DAILY_TOKEN_LIMIT can't be negative, got {raw_limit!r}")
+
     return Settings(
         llm_provider=provider,
         llm_api_key=env.get(API_KEY_NAMES[provider], "").strip() or None,
@@ -85,4 +111,6 @@ def load_settings(env: dict[str, str] | None = None) -> Settings:
         max_candidates=max_candidates,
         max_results=max_results,
         data_dir=data_dir.resolve(),
+        llm_fallback_model=fallback_model,
+        llm_daily_token_limit=daily_token_limit,
     )

@@ -122,7 +122,7 @@ The frontend has no test suite. Check it with `npm run build` and in a browser a
 
 **CI:** [`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs the lint, the formatting check, the tests and the frontend build on every pull request and every push to `main`. Railway deploys the API only after it passes on the commit.
 
-**Usage counts and feedback** are kept in a SQLite file in `STATE_DIR`, so they survive restarts and deploys (in memory when it's unset, as locally). The counts are at `GET /stats` on the API. To export the feedback as CSV for the evaluation:
+**Usage counts and feedback** are kept in a SQLite file in `STATE_DIR`, so they survive restarts and deploys (in memory when it's unset, as locally). On Railway, `STATE_DIR` is `/app/state`, where the `blb-state` volume is mounted. The counts are at `GET /stats` on the API. To export the feedback as CSV for the evaluation:
 
 ```bash
 uv run python -m recommender.usage_store /app/state/blb.sqlite3 > feedback.csv
@@ -152,7 +152,7 @@ The [deployment plan](Doc/deployment-plan.md) has the full steps. In short:
 2. **Vercel (frontend):** import the repository with Root Directory `frontend/`, and set `VITE_API_BASE_URL` to the Railway address.
 3. Add the Vercel address to `ALLOWED_ORIGINS` on Railway.
 
-**Railway's settings are code**, in [`.railway/railway.ts`](.railway/railway.ts): the Dockerfile builder, the `/health` check that must pass before traffic moves to a new deployment, restart on failure, the watch paths (only changes to `src/`, the Docker files and the Python lock files redeploy the API, so frontend and docs commits don't restart it), and "Wait for CI". Railway never reads the file during a deploy. To change a setting, edit the file, then from the repository root:
+**Railway's settings are code**, in [`.railway/railway.ts`](.railway/railway.ts): the Dockerfile builder, the `/health` check that must pass before traffic moves to a new deployment, restart on failure, the watch paths (only changes to `src/`, the Docker files and the Python lock files redeploy the API, so frontend and docs commits don't restart it), "Wait for CI", and the `blb-state` volume at `/app/state`. A service with a volume can't run two deployments at once, so each API redeploy has a short outage. Railway never reads the file during a deploy. To change a setting, edit the file, then from the repository root:
 
 ```bash
 npm install

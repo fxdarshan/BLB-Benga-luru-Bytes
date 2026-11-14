@@ -116,7 +116,7 @@ flowchart LR
 - **Use a two-stage build.** The first stage installs the `ingest` group and builds `data/`. The second stage installs only the server's dependencies and copies in the finished `data/`, so the 574 MB raw download and the `datasets` package never reach the running image.
 - Docker caches the ingestion layer until `src/` changes, so most code changes still re-run it. That's acceptable at first. If builds get slow, move ingestion before `COPY src/` by copying only the files it needs, or switch to the volume below.
 
-The fallback, if builds become too slow, is a Railway volume mounted at `/app/data` with `DATA_DIR` pointing to it, filled once by running the ingestion on the service.
+The fallback, if builds become too slow, is a Railway volume mounted at `/app/data` with `DATA_DIR` pointing to it, filled once by running the ingestion on the service. *Since Phase 7 the free plan's one volume holds the usage store at `/app/state`, so a data volume would need a paid plan, or the data kept on that same volume.*
 
 ### Tasks
 
@@ -267,15 +267,15 @@ These include the exit criteria of the implementation plan's Phase 7.
 - [x] **Wait for CI:** Railway holds each API deploy in `WAITING` until CI passes on the commit, and skips it if CI fails. It ignores other apps' checks, such as Vercel's.
 - [x] **Usage counts and feedback kept in SQLite:** `src/recommender/usage_store.py` stores them in `STATE_DIR`, with a CSV export of the feedback for the evaluation. No IP addresses or free text are stored.
 - [x] **Unprivileged server with a writable volume:** the image starts as root only to hand `STATE_DIR` to the `blb` user, then `setpriv` drops to it before the server starts.
-- [ ] **A Railway volume at `/app/state`,** so the SQLite file survives deploys. The free plan allows one 0.5 GB volume per project. A service with a volume can't run two deployments at once, so each API redeploy has a short outage; the watch paths make redeploys rare.
+- [x] **A Railway volume at `/app/state`,** so the SQLite file survives deploys: `blb-state`, 500 MB, declared in `.railway/railway.ts`. The free plan allows one 0.5 GB volume per project. A service with a volume can't run two deployments at once, so each API redeploy has a short outage: about 30 to 45 seconds when the volume was first mounted, and a few seconds for a plain redeploy. The watch paths make redeploys rare.
 - [ ] Optionally, a branch rule on `main` that requires a pull request with passing CI
 
 ### Tests
 
-- [x] 16 new tests: the store's counting, persistence across reopening, ordering, fallback to memory, schema guard, thread safety and export, and the API's counts surviving a restart. All 497 tests pass.
+- [x] 16 new tests: the store's counting, persistence across reopening, ordering, fallback to memory, schema guard, thread safety and export, and the API's counts surviving a restart. All 497 tests pass locally; on CI, 490 pass and 9 skip, since CI has no restaurant data.
 - [ ] A frontend-only or docs-only push no longer redeploys the API
-- [ ] A merge to `main` waits for CI before Railway deploys it
-- [ ] Usage counts and feedback survive a redeploy on Railway
+- [x] A merge to `main` waits for CI before Railway deploys it: the merge of pull request 1 sat in `WAITING` until CI passed at 06:41:48 UTC, and Railway started building at 06:42:02
+- [x] Usage counts and feedback survive a redeploy on Railway: after `railway redeploy`, `/stats` kept its `since` time and the search made before it
 
 ## API Contract
 

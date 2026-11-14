@@ -15,13 +15,15 @@ from __future__ import annotations
 import json
 import logging
 import os
+import sqlite3
 import sys
 import threading
 import time
-from collections import Counter, defaultdict, deque
+from collections import defaultdict, deque
 from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any
 
 from dotenv import load_dotenv
@@ -47,6 +49,7 @@ from recommender.models import MAX_ADDITIONAL_CHARS, BudgetBand, Preferences, Ra
 from recommender.rankers import make_ranker
 from recommender.repository import DataUnavailableError, RestaurantRepository
 from recommender.service import RecommendationService
+from recommender.usage_store import DB_FILENAME, UsageStore
 
 logger = logging.getLogger(__name__)
 # One line per piece of feedback on an explanation, for the evaluation. No free text.
@@ -58,7 +61,6 @@ DEFAULT_RATE_LIMIT_PER_MINUTE = 10
 FEEDBACK_PER_MINUTE = 30
 RATE_WINDOW_SECONDS = 60.0
 MAX_LIKED_DISHES = 4
-STATS_TOP = 10
 DEFAULT_WARM_INTERVAL_SECONDS = 60
 UNAVAILABLE_MESSAGE = "Restaurant data isn't available right now. Please try again later."
 RATE_LIMITED_MESSAGE = "Too many searches. Try again in a minute."
@@ -80,6 +82,9 @@ class ApiSettings:
     # for diners. Each costs about one LLM search an hour. Empty turns this off.
     warm_areas: tuple[str, ...] = ()
     warm_interval_seconds: int = DEFAULT_WARM_INTERVAL_SECONDS
+    # Where usage counts and feedback are kept, so they survive restarts. On Railway this is a
+    # mounted volume. None keeps them in memory, so they reset when the server restarts.
+    state_dir: Path | None = None
 
     @classmethod
     def from_env(cls, env: dict[str, str] | None = None) -> ApiSettings:
@@ -94,7 +99,10 @@ class ApiSettings:
         hops = _whole_number(env, "TRUSTED_PROXY_HOPS", 0)
         warm = tuple(a.strip() for a in env.get("WARM_CACHE_AREAS", "").split(",") if a.strip())
         interval = _whole_number(env, "WARM_CACHE_INTERVAL_SECONDS", DEFAULT_WARM_INTERVAL_SECONDS)
-        return cls(origins, regex, limit, hops, warm, max(1, interval))
+        # A relative path starts from the project root, as DATA_DIR does.
+        raw_state_dir = env.get("STATE_DIR", "").strip()
+        state_dir = (PROJECT_ROOT / raw_state_dir).resolve() if raw_state_dir else None
+        return cls(origins, regex, limit, hops, warm, max(1, interval), state_dir)
 
 
 class Feedback(BaseModel):
@@ -106,60 +114,6 @@ class Feedback(BaseModel):
     rank: int = Field(ge=1, le=20)
     helpful: bool
     ai_ranked: bool = True
-
-
-@dataclass
-class UsageStats:
-    """Counts since the server started, for seeing what diners search for. Nothing personal."""
-
-    started: float = field(default_factory=time.time)
-    searches: int = 0
-    ai_ranked: int = 0
-    cache_hits: int = 0
-    fallbacks: Counter[str] = field(default_factory=Counter)
-    areas: Counter[str] = field(default_factory=Counter)
-    cuisines: Counter[str] = field(default_factory=Counter)
-    dishes: Counter[str] = field(default_factory=Counter)
-    budgets: Counter[str] = field(default_factory=Counter)
-    feedback: Counter[str] = field(default_factory=Counter)
-    _lock: threading.Lock = field(default_factory=threading.Lock)
-
-    def record_search(self, preferences: Preferences, result: Any) -> None:
-        with self._lock:
-            self.searches += 1
-            self.ai_ranked += int(result.ai_ranked)
-            self.cache_hits += int(result.diagnostics.cache_hit)
-            if result.failure_reason:
-                self.fallbacks[result.failure_reason] += 1
-            self.areas[preferences.area] += 1
-            self.budgets[preferences.budget] += 1
-            self.cuisines.update(preferences.cuisines)
-            self.dishes.update(preferences.dishes)
-
-    def record_feedback(self, helpful: bool) -> None:
-        with self._lock:
-            self.feedback["helpful" if helpful else "not_helpful"] += 1
-
-    def snapshot(self) -> dict[str, Any]:
-        def top(counter: Counter[str]) -> list[dict[str, Any]]:
-            return [{"name": k, "count": v} for k, v in counter.most_common(STATS_TOP)]
-
-        with self._lock:
-            return {
-                "since": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(self.started)),
-                "searches": self.searches,
-                "ai_ranked": self.ai_ranked,
-                "cache_hits": self.cache_hits,
-                "fallbacks": dict(self.fallbacks),
-                "top_areas": top(self.areas),
-                "top_cuisines": top(self.cuisines),
-                "top_dishes": top(self.dishes),
-                "budgets": dict(self.budgets),
-                "feedback": {
-                    "helpful": self.feedback["helpful"],
-                    "not_helpful": self.feedback["not_helpful"],
-                },
-            }
 
 
 def warm_cache(
@@ -318,7 +272,7 @@ def create_app(
     settings = api_settings or ApiSettings.from_env()
     limiter = RateLimiter(settings.rate_limit_per_minute)
     feedback_limiter = RateLimiter(FEEDBACK_PER_MINUTE)
-    stats = UsageStats()
+    stats = UsageStore.open(settings.state_dir / DB_FILENAME if settings.state_dir else None)
     stop_warming = threading.Event()
 
     @asynccontextmanager
@@ -340,6 +294,7 @@ def create_app(
             ).start()
         yield
         stop_warming.set()
+        stats.close()
 
     app = FastAPI(
         title="BLB API",
@@ -433,7 +388,7 @@ def create_app(
                 status_code=429,
                 headers={"Retry-After": str(int(wait + 0.999))},
             )
-        stats.record_feedback(item.helpful)
+        stats.record_feedback(item.restaurant, item.rank, item.helpful, item.ai_ranked)
         record = {
             "restaurant": item.restaurant,
             "rank": item.rank,
@@ -445,6 +400,12 @@ def create_app(
 
     @app.get("/stats")
     def usage() -> dict[str, Any]:
-        return stats.snapshot()
+        try:
+            return stats.snapshot()
+        except sqlite3.Error as error:
+            logger.exception("Couldn't read the usage store")
+            raise HTTPException(
+                status_code=503, detail="Usage counts aren't available right now."
+            ) from error
 
     return app

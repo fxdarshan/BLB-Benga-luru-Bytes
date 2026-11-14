@@ -320,3 +320,36 @@ def test_warm_cache_does_nothing_without_an_llm():
 
     service = RecommendationService(repository(), None)
     warm_cache(service, ("MG Road",), 5, threading.Event())  # returns at once
+
+
+def test_stats_and_feedback_survive_a_restart(tmp_path):
+    settings = ApiSettings(allowed_origins=(ORIGIN,), state_dir=tmp_path)
+    with client_for(good_ranker(), settings=settings) as client:
+        client.post("/recommend", json={**SEARCH, "dishes": ["Biryani"]})
+        client.post("/feedback", json={"restaurant": "Beta", "rank": 2, "helpful": True})
+        before = client.get("/stats").json()
+    # A new app on the same directory, as after a redeploy, keeps the counts.
+    with client_for(good_ranker(), settings=settings) as client:
+        after = client.get("/stats").json()
+    assert after["storage"] == "persistent"
+    assert after["searches"] == 1
+    assert after["top_dishes"] == [{"name": "Biryani", "count": 1}]
+    assert after["feedback"] == {"helpful": 1, "not_helpful": 0}
+    assert after["since"] == before["since"]
+    assert (tmp_path / "blb.sqlite3").is_file()
+
+
+def test_without_a_state_dir_counts_are_kept_in_memory():
+    with client_for(good_ranker()) as client:
+        assert client.get("/stats").json()["storage"] == "memory"
+
+
+def test_state_dir_is_read_from_the_environment(tmp_path):
+    from recommender.config import PROJECT_ROOT
+
+    assert ApiSettings.from_env({}).state_dir is None
+    assert ApiSettings.from_env({"STATE_DIR": "  "}).state_dir is None
+    assert ApiSettings.from_env({"STATE_DIR": str(tmp_path)}).state_dir == tmp_path.resolve()
+    assert (
+        ApiSettings.from_env({"STATE_DIR": "state"}).state_dir == (PROJECT_ROOT / "state").resolve()
+    )

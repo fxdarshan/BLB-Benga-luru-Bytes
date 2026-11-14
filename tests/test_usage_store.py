@@ -48,14 +48,58 @@ def test_counts_feedback():
     store.record_feedback("Alpha", 1, True, True)
     store.record_feedback("Beta", 2, True, False)
     store.record_feedback("Gamma", 3, False, True)
-    assert store.snapshot()["feedback"] == {"helpful": 2, "not_helpful": 1}
+    store.record_feedback("Delta", 4, False, True, "too_pricey")
+    store.record_feedback("Echo", 5, False, True, "too_pricey")
+    store.record_feedback("Gamma", 3, False, False, "too_far")
+    assert store.snapshot()["feedback"] == {
+        "helpful": 2,
+        "not_helpful": 4,
+        "reasons": {"too_far": 1, "too_pricey": 2},
+    }
+
+
+V1_FEEDBACK = """
+CREATE TABLE feedback (
+    id INTEGER PRIMARY KEY,
+    at TEXT NOT NULL,
+    restaurant TEXT NOT NULL,
+    rank INTEGER NOT NULL,
+    helpful INTEGER NOT NULL,
+    ai_ranked INTEGER NOT NULL
+);
+INSERT INTO feedback (at, restaurant, rank, helpful, ai_ranked)
+    VALUES ('2026-11-01T10:00:00Z', 'Alpha', 1, 0, 1);
+PRAGMA user_version = 1;
+"""
+
+
+def test_a_schema_1_store_gains_reasons_and_keeps_its_feedback(tmp_path):
+    path = tmp_path / "blb.sqlite3"
+    db = sqlite3.connect(path)
+    db.executescript(V1_FEEDBACK)
+    db.close()
+    out = io.StringIO()
+    export_feedback(path, out)  # an old store still exports, with empty reasons
+    assert out.getvalue().splitlines()[1] == "2026-11-01T10:00:00Z,Alpha,1,False,True,"
+    store = UsageStore.open(path)
+    assert store.persistent is True
+    store.record_feedback("Beta", 2, False, True, "wrong_cuisine")
+    assert store.snapshot()["feedback"] == {
+        "helpful": 0,
+        "not_helpful": 2,
+        "reasons": {"wrong_cuisine": 1},
+    }
+    store.close()
+    db = sqlite3.connect(path)
+    assert db.execute("PRAGMA user_version").fetchone()[0] == SCHEMA_VERSION == 2
+    db.close()
 
 
 def test_an_empty_store_reports_zeros():
     stats = UsageStore().snapshot()
     assert (stats["searches"], stats["ai_ranked"], stats["cache_hits"]) == (0, 0, 0)
     assert stats["top_areas"] == [] and stats["fallbacks"] == {} and stats["budgets"] == {}
-    assert stats["feedback"] == {"helpful": 0, "not_helpful": 0}
+    assert stats["feedback"] == {"helpful": 0, "not_helpful": 0, "reasons": {}}
 
 
 def test_counts_survive_reopening_the_file(tmp_path):
@@ -149,14 +193,14 @@ def test_export_writes_feedback_as_csv_oldest_first(tmp_path):
     path = tmp_path / "blb.sqlite3"
     store = UsageStore(path, clock=lambda: 1_794_600_000.0)
     store.record_feedback("Jose's Mess", 1, True, True)
-    store.record_feedback("Beta, Bistro", 2, False, False)
+    store.record_feedback("Beta, Bistro", 2, False, False, "explanation_off")
     store.close()
     out = io.StringIO()
     assert export_feedback(path, out) == 2
     assert out.getvalue().splitlines() == [
-        "at,restaurant,rank,helpful,ai_ranked",
-        "2026-11-13T20:00:00Z,Jose's Mess,1,True,True",
-        '2026-11-13T20:00:00Z,"Beta, Bistro",2,False,False',
+        "at,restaurant,rank,helpful,ai_ranked,reason",
+        "2026-11-13T20:00:00Z,Jose's Mess,1,True,True,",
+        '2026-11-13T20:00:00Z,"Beta, Bistro",2,False,False,explanation_off',
     ]
 
 
@@ -170,5 +214,5 @@ def test_command_line_exports_and_reports_problems(tmp_path, capsys):
     capsys.readouterr()
     assert main([str(path)]) == 0
     captured = capsys.readouterr()
-    assert captured.out.startswith("at,restaurant,rank,helpful,ai_ranked\n")
+    assert captured.out.startswith("at,restaurant,rank,helpful,ai_ranked,reason\n")
     assert "1 feedback rows" in captured.err

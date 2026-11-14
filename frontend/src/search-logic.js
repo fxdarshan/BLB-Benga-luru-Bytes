@@ -141,3 +141,33 @@ export function mapsUrl(name, place) {
   const query = `${name}, ${place}, Bangalore`;
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
 }
+
+/**
+ * One-tap ways to widen a search that found nothing: drop the dish or cuisine, any budget, a
+ * lower rating, new places, or a neighbouring area with the same name (another Koramangala
+ * block). The server already loosens the rating and budget a little before giving up.
+ */
+export function loosenOptions(search, areas = []) {
+  const options = [];
+  if (search.dishes.length) {
+    const label = search.dishes.length === 1 ? `Without ${search.dishes[0]}` : "Any dish";
+    options.push({ label, change: { dishes: [] }, icon: "utensils" });
+  }
+  if (search.cuisines.length) {
+    options.push({ label: "Any cuisine", change: { cuisines: [] }, icon: "bowl" });
+  }
+  if (search.budget !== "any") {
+    options.push({ label: "Any budget", change: { budget: "any" }, icon: "wallet" });
+  }
+  if (search.min_rating > 3) {
+    const lower = Math.max(0, Math.round((search.min_rating - 1) * 10) / 10);
+    options.push({ label: `Rated ${lower.toFixed(1)}+`, change: { min_rating: lower }, icon: "star" });
+  }
+  if (!search.include_unrated) {
+    options.push({ label: "Include new places", change: { include_unrated: true }, icon: "sparkle" });
+  }
+  const first = search.area.split(/\s+/)[0];
+  const sibling = areas.find((a) => a !== search.area && a.split(/\s+/)[0] === first);
+  if (sibling) options.push({ label: `Try ${sibling}`, change: { area: sibling }, icon: "pin" });
+  return options;
+}

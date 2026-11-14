@@ -18,6 +18,7 @@ It's a web app: a FastAPI backend (`src/recommender/api.py`) on Railway and a st
 | **Clear loading** | Placeholder cards and a line saying what's happening ("Ranking with AI…") until the first results arrive. |
 | **Shareable searches** | Each search is kept in the page address (`?area=BTM&dish=Biryani`), so it can be shared or bookmarked, and the browser's Back button returns to the previous search. |
 | **Remembers the last search** | The form is filled in with your last search when you come back. Kept in this browser only. |
+| **Nothing matched** | The empty screen offers one-tap ways to widen the search, worked out from it: without the dish, any cuisine, any budget, a lower rating, new places, or a neighbouring area such as another Koramangala block. |
 | **Refine** | One-tap buttons above the results: Pocket friendly (the next budget down), a higher minimum rating, Include new places, and Clear filters. |
 | **Phone layout** | After a search on a narrow screen, the form shrinks to a one-line summary with "Edit search", so the results are in view. |
 | **Card actions** | Directions (opens Google Maps, no key needed), Share (the phone's share sheet, or copies a link), Save, and More like this (same main cuisine and price band in the same area). |

@@ -756,6 +756,23 @@ function aiBusyNotice(search) {
   return box;
 }
 
+/** Buttons that widen a search that found nothing, each running it again with one change. */
+function loosenBar(search) {
+  const options = logic.loosenOptions(search, state.options.areas);
+  if (!options.length) return null;
+  const bar = el("div", "loosen");
+  bar.append(el("p", "loosen-label", "Try one of these:"));
+  const buttons = el("div", "loosen-buttons");
+  for (const option of options) {
+    const button = withIcon("button", "refine-button loosen-button", option.icon, option.label, 14);
+    button.type = "button";
+    button.addEventListener("click", () => runSearch({ ...search, ...option.change }));
+    buttons.append(button);
+  }
+  bar.append(buttons);
+  return bar;
+}
+
 /** Shown above the rating-ranked shortlist while the AI ranks the same search. */
 function aiPendingNotice() {
   const box = el("div", "notice ai-pending");
@@ -794,13 +811,14 @@ function renderResults(
   for (const part of data.search_summary) chips.append(el("span", "chip", part));
 
   const nodes = [head, rise(chips, 0)];
-  const refine = refineBar(search);
+  // Refine narrows a search, so it's no help when nothing matched: that shows ways to widen it.
+  const refine = count ? refineBar(search) : null;
   if (refine) nodes.push(rise(refine, 0));
   if (state.wordsNote) nodes.push(rise(notice(state.wordsNote), 0));
   state.wordsNote = "";
   for (const message of data.relaxations) nodes.push(rise(notice(message), 0));
   if (!count) {
-    nodes.push(rise(stateBlock("empty", "Nothing matched", NO_RESULTS_MESSAGE), 1));
+    nodes.push(rise(stateBlock("empty", "Nothing matched", NO_RESULTS_MESSAGE, loosenBar(search)), 1));
   } else {
     if (pending) nodes.push(rise(aiPendingNotice(), 1));
     else if (aiError) nodes.push(rise(aiFailedNotice(aiError, search), 1));

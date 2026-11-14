@@ -29,6 +29,9 @@ Both use the same search code in `src/recommender/`.
 | **Shortlist** | ♥ Saved in the header opens your saved places side by side: rating, price for two, cuisines and area. Kept in this browser only. |
 | **Feedback** | 👍 / 👎 under each "Why this fits". Counted on the API and written to its log, as labelled examples for the evaluation. |
 | **Look** | The top result is marked "Top pick" with a crown, ratings are coloured by band (green 4.0+, amber 3.5 to 3.9, grey below), and each card has a small cuisine icon. One set of rounded line icons in the accent colour marks the form labels, budgets (✦, ₹, ₹₹, ₹₹₹), refine buttons, card badges, "Liked for", "Why this fits" and the review quote, and the example searches have food emoji. |
+| **Light and dark themes** | Follows the phone or computer's setting, and the sun/moon button in the header switches it. The choice is remembered in this browser. The light theme is a warm cream version of the dark one, for reading outdoors; all text is at least 5:1 contrast in both. |
+| **Illustrations** | Small line drawings in the accent colour for the welcome screen (a steaming bowl and skyline), no matches (an empty plate), the AI being busy (a pot on the boil) and errors (an unplugged cable). |
+| **Depth and motion** | A warm glow on the header and the top pick, cards that lift on hover, a ring around the chosen budget, lists and the shortlist that slide open, buttons that press in, a heart that pops on Save, and cross-fades when results or the theme change. All motion stops when the device asks for reduced motion. |
 | **When the AI is busy** | If Groq's per-minute limit is reached, results are ranked by rating and the page says why, with a Try again button. |
 
 ## Documents

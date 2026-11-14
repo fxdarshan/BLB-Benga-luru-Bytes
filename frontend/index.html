@@ -4,7 +4,10 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="description" content="Restaurant recommendations for Bangalore, ranked and explained by AI." />
-    <meta name="color-scheme" content="dark" />
+    <meta name="color-scheme" content="dark light" />
+    <meta name="theme-color" content="#12151a" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="#fffdf8" media="(prefers-color-scheme: light)" />
+    <script src="/theme.js"></script>
     <title>Banga-Luru Bytes</title>
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -29,6 +32,10 @@
           <div class="status-pill" id="status" hidden>
             <span class="status-dot" id="status-dot"></span><span id="status-text"></span>
           </div>
+          <button type="button" class="theme-button" id="theme-button" aria-label="Switch to the light theme" title="Switch theme">
+            <span class="theme-icon theme-icon-sun" data-icon="sun" data-icon-size="17"></span>
+            <span class="theme-icon theme-icon-moon" data-icon="moon" data-icon-size="17"></span>
+          </button>
           <button type="button" class="saved-button" id="saved-button" aria-haspopup="dialog">
             <span class="saved-heart" data-icon="heart" data-icon-size="15"></span> Saved <span class="saved-count" id="saved-count">0</span>
           </button>

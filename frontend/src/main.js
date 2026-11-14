@@ -6,12 +6,14 @@
 import "./style.css";
 import { ApiError, getHealth, getOptions, recommend, sendFeedback } from "./api.js";
 import { cuisineIcon } from "./cuisine-icons.js";
+import { illustration } from "./illustrations.js";
 import { parseSentence } from "./parse.js";
 import { load, save } from "./storage.js";
 
 const BUDGETS = ["any", "low", "medium", "high"];
 const LAST_SEARCH_KEY = "blb:last-search";
 const SAVED_KEY = "blb:shortlist";
+const THEME_KEY = "blb:theme"; // Also read by public/theme.js.
 // A quick price sign on each budget option.
 const BUDGET_TIERS = { any: "✦", low: "₹", medium: "₹₹", high: "₹₹₹" };
 
@@ -51,6 +53,8 @@ const ICONS = {
   reset: '<path d="M4 12a8 8 0 1 0 2.4-5.7L4 8.5"/><path d="M4 4v4.5h4.5"/>',
   check: '<path d="m5 12.5 4.5 4.5L19 7.5"/>',
   search: '<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>',
+  sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M4.6 4.6 6 6M18 18l1.4 1.4M2.5 12h2M19.5 12h2M4.6 19.4 6 18M18 6l1.4-1.4"/>',
+  moon: '<path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/>',
   trophy:
     '<path d="M8 4h8v5a4 4 0 0 1-8 0z"/><path d="M8 6H5a3 3 0 0 0 3 4M16 6h3a3 3 0 0 1-3 4"/><path d="M12 13v4M8.5 20h7M10 17h4v3h-4z"/>',
 };
@@ -626,7 +630,7 @@ async function runSearch(search, { history = "push" } = {}) {
     const retry = el("button", "btn-secondary", "Try again");
     retry.type = "button";
     retry.addEventListener("click", () => runSearch(current, { history: "none" }));
-    results.replaceChildren(notice(message, "error"), retry);
+    results.replaceChildren(stateBlock("error", "That didn't work", message, retry));
   } finally {
     clearLoadingTimers();
     state.searching = false;
@@ -711,7 +715,17 @@ function showWelcome() {
     button.addEventListener("click", () => runSearch({ ...defaultSearch(example.search.area), ...example.search }));
     list.append(button);
   }
-  results.replaceChildren(intro, list);
+  const welcome = el("div", "state state-welcome");
+  welcome.append(illustration("welcome"), intro, list);
+  swap(() => results.replaceChildren(welcome));
+}
+
+/** A drawing, a heading, a line of text and an optional button, for empty and error states. */
+function stateBlock(name, title, text, action) {
+  const box = el("div", `state state-${name}`);
+  box.append(illustration(name), el("h3", "state-title", title), el("p", "state-text", text));
+  if (action) box.append(action);
+  return box;
 }
 
 // ---------- Search in your own words ----------
@@ -768,8 +782,45 @@ function expandForm({ scroll = true } = {}) {
   if (scroll) form.scrollIntoView({ behavior: smoothScroll(), block: "start" });
 }
 
+function reducedMotion() {
+  return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
+
+/** Change the page with a short cross-fade where the browser supports it. */
+function swap(change) {
+  if (document.startViewTransition && !reducedMotion()) document.startViewTransition(change);
+  else change();
+}
+
+// ---------- Light and dark theme ----------
+
+const prefersDark = window.matchMedia("(prefers-color-scheme: dark)");
+
+function currentTheme() {
+  return document.documentElement.dataset.theme || (prefersDark.matches ? "dark" : "light");
+}
+
+function showTheme() {
+  const theme = currentTheme();
+  const button = $("theme-button");
+  button.dataset.current = theme;
+  button.setAttribute("aria-label", theme === "dark" ? "Switch to the light theme" : "Switch to the dark theme");
+  // Match the phone's browser bar to the header.
+  const bar = theme === "dark" ? "#12151a" : "#fffdf8";
+  document.querySelectorAll('meta[name="theme-color"]').forEach((meta) => meta.setAttribute("content", bar));
+}
+
+function toggleTheme() {
+  const next = currentTheme() === "dark" ? "light" : "dark";
+  save(THEME_KEY, next);
+  swap(() => {
+    document.documentElement.dataset.theme = next;
+    showTheme();
+  });
+}
+
 function smoothScroll() {
-  return window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth";
+  return reducedMotion() ? "auto" : "smooth";
 }
 
 // ---------- Shortlist ----------
@@ -815,6 +866,12 @@ function toggleSaved(result) {
       cost: result.badges[0] ?? "",
     };
     setSaved([...state.saved, item]);
+    document.querySelectorAll(".save-button").forEach((button) => {
+      if (button.dataset.key !== key) return;
+      button.classList.remove("pop");
+      void button.offsetWidth; // restart the animation
+      button.classList.add("pop");
+    });
     toast(`Saved ${result.name} to your shortlist`);
   }
 }
@@ -1056,10 +1113,15 @@ function refineBar(search) {
 }
 
 function aiBusyNotice(search) {
-  const box = notice(
-    "The AI is busy right now. The free plan allows only a few AI searches a minute, so these " +
-      "places are ranked by rating instead. Try again in a minute for AI picks and explanations.",
-    "warn",
+  const box = el("div", "notice warn notice-illustrated");
+  box.append(
+    illustration("busy", { size: "small" }),
+    el(
+      "span",
+      "",
+      "The AI is busy right now. The free plan allows only a few AI searches a minute, so these " +
+        "places are ranked by rating instead. Try again in a minute for AI picks and explanations.",
+    ),
   );
   const retry = el("button", "link-button", "Try again");
   retry.type = "button";
@@ -1084,7 +1146,7 @@ function renderResults(data, search) {
   state.wordsNote = "";
   for (const message of data.relaxations) nodes.push(rise(notice(message), 0));
   if (!count) {
-    nodes.push(rise(notice(NO_RESULTS_MESSAGE, "warn"), 1));
+    nodes.push(rise(stateBlock("empty", "Nothing matched", NO_RESULTS_MESSAGE), 1));
   } else {
     if (data.ai_busy) nodes.push(rise(aiBusyNotice(search), 1));
     else if (data.notice) nodes.push(rise(notice(data.notice, "warn"), 1));
@@ -1098,15 +1160,16 @@ function renderResults(data, search) {
     data.results.forEach((result, index) => nodes.push(rise(card(result, data, search), index + 2)));
     nodes.push(rise(el("p", "footnote", DATA_NOTE), count + 2));
   }
-  results.replaceChildren(...nodes);
-
-  // On a phone the results sit below the form: shrink the form and bring the results into view.
-  if (narrowScreen.matches) {
-    collapseForm(search);
-    form.scrollIntoView({ behavior: smoothScroll(), block: "start" });
-  } else if (results.getBoundingClientRect().top > window.innerHeight * 0.6) {
-    results.scrollIntoView({ behavior: smoothScroll(), block: "start" });
-  }
+  swap(() => {
+    results.replaceChildren(...nodes);
+    // On a phone the results sit below the form: shrink the form and bring the results into view.
+    if (narrowScreen.matches) {
+      collapseForm(search);
+      form.scrollIntoView({ behavior: smoothScroll(), block: "start" });
+    } else if (results.getBoundingClientRect().top > window.innerHeight * 0.6) {
+      results.scrollIntoView({ behavior: smoothScroll(), block: "start" });
+    }
+  });
 }
 
 // ---------- Start ----------
@@ -1138,6 +1201,9 @@ function wireUp() {
   });
 
   $("edit-search").addEventListener("click", () => expandForm());
+  $("theme-button").addEventListener("click", toggleTheme);
+  prefersDark.addEventListener("change", showTheme);
+  showTheme();
   narrowScreen.addEventListener("change", () => {
     if (!narrowScreen.matches) expandForm({ scroll: false });
   });
@@ -1173,7 +1239,7 @@ async function start() {
     const retry = el("button", "btn-primary", "Try again");
     retry.type = "button";
     retry.addEventListener("click", () => window.location.reload());
-    results.replaceChildren(notice(errorMessage(error), "error"), retry);
+    results.replaceChildren(stateBlock("error", "Can't load the menu", errorMessage(error), retry));
     return;
   }
 

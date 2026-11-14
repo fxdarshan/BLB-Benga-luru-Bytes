@@ -1,5 +1,7 @@
-/* BLB dark theme, from blb_dark_dining_finder/code.html and DESIGN.md. Every colour, font and
-   size lives in these variables. The page is dark only, by design. */
+/* BLB themes. The dark theme comes from blb_dark_dining_finder/code.html and DESIGN.md; the
+   light theme is a warm cream version of it, for reading outdoors. Every colour, font and size
+   lives in these variables. The page follows the device's setting unless the diner picks one
+   with the theme button, which sets data-theme on <html>. */
 :root {
   --bg: #0e1013;
   --header: #12151a;
@@ -37,6 +39,19 @@
   --live: #4ade80;
   --off: #8c95a3;
 
+  --accent-strong: #ffd58a; /* text on a selected budget */
+  --accent-icon: #f5a524; /* icons beside labels */
+  --accent-ring: rgba(245, 165, 36, 0.28);
+  --accent-hover: rgba(255, 195, 92, 0.15);
+  --glow: rgba(245, 165, 36, 0.10);
+  --glow-strong: rgba(245, 165, 36, 0.22);
+  --rating-votes: #9fd9bc;
+  --warn-votes: #d9b77a;
+  --shadow: rgba(0, 0, 0, 0.45);
+  --card-shadow: 0 10px 28px rgba(0, 0, 0, 0.35);
+  --backdrop: rgba(0, 0, 0, 0.6);
+  --illustration-faint: #3a4150;
+
   --font-body: Inter, system-ui, sans-serif;
   --font-heading: "Space Grotesk", Inter, sans-serif;
 
@@ -49,6 +64,114 @@
   --rise-step: 90ms;
 
   color-scheme: dark;
+}
+
+/* The light theme: chosen with the theme button, or by the device when no choice is saved. */
+:root[data-theme="light"] {
+  --bg: #faf6ef;
+  --header: #fffdf8;
+  --surface: #ffffff;
+  --field: #f6f0e6;
+  --rank: #efe6d6;
+
+  --border: #ebe2d2;
+  --border-field: #dccfba;
+
+  --text: #1f1a14;
+  --text-body: #3a3229;
+  --text-label: #463d32;
+  --text-muted: #62584a;
+  --text-faint: #736956;
+
+  --accent: #f5a524;
+  --accent-text: #8f5400;
+  --accent-soft: #fdf0d6;
+  --on-accent: #1a1206;
+  --accent-strong: #7a4700;
+  --accent-icon: #b87300;
+  --accent-ring: rgba(212, 134, 0, 0.25);
+  --accent-hover: rgba(212, 134, 0, 0.12);
+  --glow: rgba(245, 165, 36, 0.12);
+  --glow-strong: rgba(245, 165, 36, 0.22);
+
+  --rating-bg: #e2f5e9;
+  --rating-text: #11673d;
+  --rating-votes: #3f7d5c;
+  --unrated-bg: #efebe4;
+  --unrated-text: #463d32;
+  --info-bg: #e9f2fc;
+  --info-border: #bcd5ef;
+  --info-text: #1d4f86;
+  --warn-bg: #fdf3df;
+  --warn-border: #edcd8c;
+  --warn-text: #7f5200;
+  --warn-votes: #8a6a2e;
+  --error-bg: #fdeded;
+  --error-border: #efbcbc;
+  --error-text: #9c2626;
+  --live: #16a34a;
+  --off: #8a8170;
+
+  --shadow: rgba(60, 40, 10, 0.16);
+  --card-shadow: 0 10px 28px rgba(60, 40, 10, 0.12);
+  --backdrop: rgba(30, 22, 10, 0.4);
+  --illustration-faint: #d9ccb6;
+
+  color-scheme: light;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --bg: #faf6ef;
+    --header: #fffdf8;
+    --surface: #ffffff;
+    --field: #f6f0e6;
+    --rank: #efe6d6;
+
+    --border: #ebe2d2;
+    --border-field: #dccfba;
+
+    --text: #1f1a14;
+    --text-body: #3a3229;
+    --text-label: #463d32;
+    --text-muted: #62584a;
+    --text-faint: #736956;
+
+    --accent: #f5a524;
+    --accent-text: #8f5400;
+    --accent-soft: #fdf0d6;
+    --on-accent: #1a1206;
+    --accent-strong: #7a4700;
+    --accent-icon: #b87300;
+    --accent-ring: rgba(212, 134, 0, 0.25);
+    --accent-hover: rgba(212, 134, 0, 0.12);
+    --glow: rgba(245, 165, 36, 0.12);
+    --glow-strong: rgba(245, 165, 36, 0.22);
+
+    --rating-bg: #e2f5e9;
+    --rating-text: #11673d;
+    --rating-votes: #3f7d5c;
+    --unrated-bg: #efebe4;
+    --unrated-text: #463d32;
+    --info-bg: #e9f2fc;
+    --info-border: #bcd5ef;
+    --info-text: #1d4f86;
+    --warn-bg: #fdf3df;
+    --warn-border: #edcd8c;
+    --warn-text: #7f5200;
+    --warn-votes: #8a6a2e;
+    --error-bg: #fdeded;
+    --error-border: #efbcbc;
+    --error-text: #9c2626;
+    --live: #16a34a;
+    --off: #8a8170;
+
+    --shadow: rgba(60, 40, 10, 0.16);
+    --card-shadow: 0 10px 28px rgba(60, 40, 10, 0.12);
+    --backdrop: rgba(30, 22, 10, 0.4);
+    --illustration-faint: #d9ccb6;
+
+    color-scheme: light;
+  }
 }
 
 * { box-sizing: border-box; }
@@ -124,7 +247,7 @@ svg { flex: none; }
   border: 1px solid var(--border-field); background: var(--field); color: var(--text-label); font: inherit;
 }
 .budget-option:hover { border-color: var(--text-faint); }
-.budget-option[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); color: #ffd58a; }
+.budget-option[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); color: var(--accent-strong); }
 .budget-name { display: block; font-weight: 600; font-size: 14px; }
 .budget-range { display: block; font-size: 12px; opacity: 0.85; }
 
@@ -142,7 +265,7 @@ svg { flex: none; }
   width: 24px; height: 24px; padding: 0; border: 0; border-radius: 6px;
   background: transparent; color: inherit; cursor: pointer;
 }
-.tag-remove:hover { background: rgba(255, 195, 92, 0.15); }
+.tag-remove:hover { background: var(--accent-hover); }
 /* On touch screens, give the remove button a full-size target without growing the tag. */
 @media (pointer: coarse) {
   .tag-remove { width: 40px; height: 40px; margin: -8px -6px -8px -4px; }
@@ -168,7 +291,7 @@ svg { flex: none; }
   position: absolute; z-index: 20; top: calc(100% + 6px); left: 0; right: 0;
   max-height: 280px; overflow: hidden auto; margin: 0; padding: 6px; list-style: none;
   background: var(--field); border: 1px solid var(--border-field); border-radius: var(--radius-field);
-  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.45);
+  box-shadow: 0 12px 28px var(--shadow);
 }
 /* Options are larger and bold, and the one under the cursor or arrow keys grows and turns
    bolder, as in the Streamlit app. Scaling the text, rather than the font size, keeps the
@@ -262,7 +385,7 @@ input[type="range"] { width: 100%; min-height: 28px; }
   display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: var(--radius-chip);
   background: var(--rating-bg); color: var(--rating-text); font-weight: 700; font-size: 14px; white-space: nowrap;
 }
-.rating .votes { font-weight: 500; color: #9fd9bc; }
+.rating .votes { font-weight: 500; color: var(--rating-votes); }
 .rating.unrated { background: var(--unrated-bg); color: var(--unrated-text); }
 .card-meta { display: flex; flex-wrap: wrap; gap: 4px 10px; font-size: 14px; color: var(--text-muted); }
 .cuisines { font-weight: 700; color: var(--text); font-size: 15px; }
@@ -441,13 +564,17 @@ input[type="range"] { width: 100%; min-height: 28px; }
 .notice .link-button { margin-left: auto; white-space: nowrap; }
 
 /* ---------- Cards: top pick, rating colours, icons, actions and feedback ---------- */
-.card.top-pick { border-color: rgba(245, 165, 36, 0.55); box-shadow: inset 4px 0 0 var(--accent); }
+.card.top-pick {
+  border-color: var(--accent);
+  box-shadow: inset 4px 0 0 var(--accent), 0 0 0 3px var(--glow), 0 12px 36px var(--glow-strong);
+  background: linear-gradient(135deg, var(--glow) 0%, transparent 45%), var(--surface);
+}
 .top-pick-badge {
   padding: 3px 8px; border-radius: 999px; background: var(--accent); color: var(--on-accent);
   font-size: 11px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; white-space: nowrap;
 }
 .rating.band-ok { background: var(--warn-bg); color: var(--warn-text); }
-.rating.band-ok .votes { color: #d9b77a; }
+.rating.band-ok .votes { color: var(--warn-votes); }
 .rating.band-low { background: var(--unrated-bg); color: var(--unrated-text); }
 .rating.band-low .votes { color: var(--text-muted); }
 .cuisine-icon { font-size: 18px; line-height: 1; }
@@ -477,7 +604,7 @@ input[type="range"] { width: 100%; min-height: 28px; }
   width: min(920px, calc(100vw - 32px)); max-height: calc(100vh - 64px); padding: 20px 22px;
   border: 1px solid var(--border); border-radius: var(--radius-card); background: var(--surface); color: var(--text);
 }
-.saved-dialog::backdrop { background: rgba(0, 0, 0, 0.6); }
+.saved-dialog::backdrop { background: var(--backdrop); }
 .saved-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
 .saved-head h2 { font-size: 20px; }
 #saved-body { display: flex; flex-direction: column; gap: 14px; }
@@ -497,7 +624,7 @@ input[type="range"] { width: 100%; min-height: 28px; }
   position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 50;
   max-width: calc(100vw - 32px); padding: 10px 16px; border-radius: 10px;
   background: var(--text); color: var(--bg); font-size: 14px; font-weight: 600;
-  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 10px 24px var(--shadow);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -523,14 +650,14 @@ input[type="range"] { width: 100%; min-height: 28px; }
 }
 .field-label { gap: 7px; }
 .field-label > svg, .form-title > svg, .results-title > svg, .liked > svg, .why-label > svg {
-  color: var(--accent);
+  color: var(--accent-icon);
 }
 .form-title { gap: 10px; }
 .results-title { gap: 10px; }
-.results-title > svg { filter: drop-shadow(0 0 6px rgba(245, 165, 36, 0.35)); }
+.results-title > svg { filter: drop-shadow(0 0 6px var(--glow-strong)); }
 .chips-label > svg { color: var(--text-faint); }
 .review-label { display: flex; }
-.review-label > svg { color: var(--accent); opacity: 0.85; }
+.review-label > svg { color: var(--accent-icon); opacity: 0.85; }
 .top-pick-badge { gap: 4px; }
 .badge > svg { color: var(--text-muted); }
 .badge-near > svg { color: var(--info-text); }
@@ -539,7 +666,7 @@ input[type="range"] { width: 100%; min-height: 28px; }
 .why-label { display: inline-flex; align-items: center; gap: 5px; vertical-align: -2px; margin-right: 4px; }
 .refine-button > svg { color: var(--accent-text); }
 .words-go { justify-content: center; gap: 4px; }
-.saved-heart { display: inline-flex; color: var(--accent); }
+.saved-heart { display: inline-flex; color: var(--accent-icon); }
 .saved-heart svg { fill: currentColor; }
 .toast > svg { color: var(--rating-bg); flex: none; }
 
@@ -560,4 +687,108 @@ input[type="range"] { width: 100%; min-height: 28px; }
 }
 @media (prefers-reduced-motion: reduce) {
   .example-emoji { transition: none; }
+}
+
+/* ---------- Theme button ---------- */
+.theme-button {
+  display: inline-flex; align-items: center; justify-content: center; width: 38px; height: 36px;
+  border: 1px solid var(--border-field); border-radius: 999px; background: transparent;
+  color: var(--accent-icon); cursor: pointer;
+}
+.theme-button:hover { border-color: var(--accent); background: var(--accent-hover); }
+.theme-icon { display: inline-flex; }
+/* Show what the button switches to: the sun on the dark theme, the moon on the light one. */
+.theme-button[data-current="dark"] .theme-icon-moon,
+.theme-button[data-current="light"] .theme-icon-sun { display: none; }
+.theme-button svg { transition: transform 0.4s ease; }
+.theme-button:hover svg { transform: rotate(25deg); }
+
+/* ---------- Illustrations and empty states ---------- */
+.illustration { display: block; flex: none; }
+.illustration-large { width: min(220px, 70%); height: auto; }
+.illustration-small { width: 64px; height: auto; }
+.illustration .ill-line { stroke: var(--accent-icon); }
+.illustration .ill-faint { stroke: var(--illustration-faint); }
+.illustration .ill-fill { fill: var(--accent-soft); stroke: none; }
+.illustration .ill-spark { stroke: var(--accent); fill: var(--accent-soft); }
+
+.state {
+  display: flex; flex-direction: column; align-items: center; text-align: center; gap: 12px;
+  padding: 28px 20px; border-radius: var(--radius-card);
+  background: radial-gradient(ellipse at 50% 0%, var(--glow) 0%, transparent 70%);
+}
+.state-title { font-size: 20px; font-weight: 600; }
+.state-text { max-width: 46ch; color: var(--text-muted); }
+.state .btn-secondary, .state .btn-primary { align-self: center; padding: 0 22px; }
+.state-welcome { align-items: center; }
+.state-welcome .empty-state { max-width: 52ch; }
+.state-welcome .examples { justify-content: center; }
+.notice-illustrated { align-items: center; }
+.notice-illustrated .illustration-small { width: 56px; }
+
+/* Gentle floating steam on the welcome and busy drawings. */
+@keyframes steam { 0%, 100% { transform: translateY(0); opacity: 1; } 50% { transform: translateY(-3px); opacity: 0.7; } }
+.state-welcome .ill-line path:last-child,
+.notice-illustrated .ill-line path:last-child { animation: steam 2.6s ease-in-out infinite; }
+
+/* ---------- Depth ---------- */
+/* A warm glow from the header's top corner, and lifted cards. */
+.header {
+  background:
+    radial-gradient(ellipse 60% 140% at 0% 0%, var(--glow-strong) 0%, transparent 60%),
+    var(--header);
+}
+.search-form { box-shadow: var(--card-shadow); }
+.card { transition: border-color 0.15s ease, translate 0.2s ease, box-shadow 0.2s ease; }
+@media (hover: hover) {
+  .card:hover { translate: 0 -3px; box-shadow: var(--card-shadow); }
+}
+/* A soft ring of light around the chosen budget. */
+.budget-option[aria-pressed="true"] {
+  box-shadow: 0 0 0 3px var(--accent-ring);
+  background: linear-gradient(160deg, var(--glow-strong) 0%, transparent 70%), var(--accent-soft);
+}
+
+/* ---------- Motion ---------- */
+/* Lists and the shortlist open with a short slide and fade. */
+@keyframes menu-in { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
+.tag-menu:not([hidden]) { animation: menu-in 0.16s ease-out; }
+@keyframes dialog-in { from { opacity: 0; transform: translateY(10px) scale(0.98); } to { opacity: 1; transform: none; } }
+@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+.saved-dialog[open] { animation: dialog-in 0.22s ease-out; }
+.saved-dialog[open]::backdrop { animation: fade-in 0.22s ease-out; }
+.toast:not([hidden]) { animation: toast-in 0.22s ease-out; }
+@keyframes toast-in { from { opacity: 0; transform: translate(-50%, 8px); } to { opacity: 1; transform: translate(-50%, 0); } }
+
+/* Buttons press in slightly. */
+.btn-primary, .btn-secondary, .action, .refine-button, .words-go, .saved-button, .theme-button,
+.feedback-button, .budget-option, .example-chip, .area-button {
+  transition-property: transform, background-color, border-color, color, box-shadow;
+  transition-duration: 0.12s;
+}
+.btn-primary:active:not(:disabled), .btn-secondary:active, .action:active, .refine-button:active,
+.words-go:active:not(:disabled), .saved-button:active, .theme-button:active, .feedback-button:active:not(:disabled),
+.budget-option:active, .example-chip:active {
+  transform: scale(0.96);
+}
+
+/* The heart pops when a place is saved. */
+@keyframes heart-pop { 0% { transform: scale(1); } 40% { transform: scale(1.45); } 100% { transform: scale(1); } }
+.save-button.pop svg { animation: heart-pop 0.4s cubic-bezier(0.3, 1.6, 0.5, 1); }
+
+/* The page cross-fades when results or the theme change, where the browser supports it. */
+::view-transition-old(root), ::view-transition-new(root) { animation-duration: 0.25s; }
+
+/* Theme changes ease the main surfaces' colours. */
+body, .header, .search-form, .card, .summary, .notice, .input, .select, .tag-box, .budget-option {
+  transition-property: background-color, border-color, color, box-shadow, translate, transform;
+  transition-duration: 0.25s, 0.15s, 0.25s, 0.2s, 0.2s, 0.12s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tag-menu:not([hidden]), .saved-dialog[open], .saved-dialog[open]::backdrop, .toast:not([hidden]),
+  .save-button.pop svg, .state-welcome .ill-line path:last-child,
+  .notice-illustrated .ill-line path:last-child { animation: none; }
+  .card:hover { translate: none; }
+  .theme-button svg { transition: none; }
 }

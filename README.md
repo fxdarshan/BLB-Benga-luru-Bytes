@@ -17,7 +17,7 @@ Both use the same search code in `src/recommender/`.
 
 | Feature | How it works |
 | --- | --- |
-| **Search in your own words** | Type "pocket-friendly biryani in BTM, rated 4+" and press Go. `frontend/src/parse.js` matches the sentence against the real lists of areas, cuisines and dishes, fills in the form, and searches. It runs in the browser, so it's instant and makes no AI call. Words it doesn't recognise go to "Anything else?". |
+| **Search in your own words** | Type "pocket-friendly biryani in BTM, rated 4+" and press Go. `frontend/src/parse.js` matches the sentence against the real lists of areas, cuisines and dishes, fills in the form, and searches. It runs in the browser, so it's instant and makes no AI call. Words it doesn't recognise go to "Anything else?", which also matches related words: "quiet" finds reviews saying "peaceful" or "cozy", and "work" finds "laptop" or "wifi". |
 | **Dropdowns** | Area, cuisine and dish open a list on click, narrow as you type, and work with the arrow keys and Enter. The item under the cursor grows and turns bold. |
 | **Home** | Clicking the BLB logo or name starts over: the form returns to its defaults, the own-words box, page address and remembered search are cleared, any search still running is ignored, and the welcome screen returns. The shortlist and theme are kept. Ctrl or Cmd-click still opens a new tab. |
 | **Example searches** | The empty page offers one-tap searches, such as "Biryani in BTM under ₹500". |

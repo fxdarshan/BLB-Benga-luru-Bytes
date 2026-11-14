@@ -40,6 +40,41 @@ _COMMON_REVIEW_WORDS = frozenset(
 )
 _IGNORED_WORDS = _COMMON_WORDS | _COMMON_REVIEW_WORDS
 
+# Words diners type, grouped with words that reviews and listings often use for the same thing,
+# so "quiet place to work" also finds reviews that say "peaceful" or "laptop". A phrase still
+# counts as one hit however many of its words match, so related words widen the match without
+# adding to the score. Ambiguous words, such as "hot", are left out.
+RELATED_WORDS: tuple[frozenset[str], ...] = tuple(
+    frozenset(group.split())
+    for group in (
+        "quiet peaceful calm serene cozy cosy relaxed relaxing",
+        "work working laptop wifi wi-fi",
+        "date romantic candlelight couple",
+        "family kids children kid-friendly",
+        "rooftop terrace open-air outdoor outdoors",
+        "spicy chilli chili fiery",
+        "healthy salad nutritious",
+        "vegan plant-based",
+        "music live-music band gig",
+        "late midnight late-night",
+        "quick fast speedy",
+        "view lake skyline",
+        "breakfast brunch",
+        "drinks cocktail beer brewery",
+        "clean hygienic hygiene",
+        "spacious roomy",
+        "authentic traditional",
+        "pet dog-friendly",
+    )
+)
+_RELATED = {word: group for group in RELATED_WORDS for word in group}
+
+
+def _word_pattern(word: str) -> str:
+    """A word, allowing a plural "s" or "es", so "cafe" also matches "cafes"."""
+    escaped = re.escape(word).replace(r"\ ", r"\s+")
+    return escaped if word.endswith("s") else f"{escaped}(?:e?s)?"
+
 
 class InvalidPreferencesError(ValueError):
     """Raised when a search names an area or cuisine that isn't in the data."""
@@ -106,9 +141,10 @@ def _budget_label(budgets: Sequence[str], metadata: DatasetMetadata) -> str:
 def extract_keyword_patterns(text: str) -> list[re.Pattern[str]]:
     """Build one pattern per comma-separated phrase.
 
-    A pattern matches the whole phrase or any of its remaining words, as whole words only, so
-    that "bar" doesn't match "barbecue" and "veg" doesn't match "non-veg". A phrase made up of
-    only ignored words gives no pattern.
+    A pattern matches the whole phrase, any of its remaining words, or a word related to one
+    (`RELATED_WORDS`), as whole words only, so that "bar" doesn't match "barbecue" and "veg"
+    doesn't match "non-veg". Plurals match too. A phrase made up of only ignored words gives no
+    pattern.
     """
     patterns: list[re.Pattern[str]] = []
     seen: set[str] = set()
@@ -119,7 +155,12 @@ def extract_keyword_patterns(text: str) -> list[re.Pattern[str]]:
         if not remaining or phrase in seen:
             continue
         seen.add(phrase)
-        options = [re.escape(phrase).replace(r"\ ", r"\s+"), *map(re.escape, remaining)]
+        expanded: list[str] = []
+        for word in remaining:
+            for candidate in (word, *sorted(_RELATED.get(word.strip(".!?'\"()"), ()))):
+                if candidate not in expanded:
+                    expanded.append(candidate)
+        options = [re.escape(phrase).replace(r"\ ", r"\s+"), *map(_word_pattern, expanded)]
         patterns.append(re.compile(rf"(?<![\w-])(?:{'|'.join(options)})(?![\w-])"))
     return patterns
 

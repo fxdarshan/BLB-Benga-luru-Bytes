@@ -515,3 +515,35 @@ def test_custom_limits_are_respected():
         Preferences(area="MG Road", min_rating=0.0), repository, max_candidates=3
     )
     assert len(selection.candidates) == 3
+
+
+# Related words and plurals
+
+
+def test_a_related_word_in_a_review_counts_as_the_phrase():
+    assert hits("quiet place to work", review_snippets=["So peaceful, I brought my laptop"]) == 1
+    assert hits("rooftop", review_snippets=["Lovely open-air terrace"]) == 1
+    assert hits("date night", review_snippets=["A romantic spot"]) == 1
+
+
+def test_related_words_count_one_hit_per_phrase():
+    review = ["Calm, serene and cozy. Good wifi for work."]
+    assert hits("quiet, work", review_snippets=review) == 2
+    assert hits("quiet", review_snippets=review) == 1
+
+
+def test_plurals_match():
+    assert hits("cafe", rest_types=["Cafes"]) == 1
+    assert hits("brewery", review_snippets=["one of the best breweries"]) == 0
+    assert hits("cocktail", review_snippets=["great cocktails"]) == 1
+
+
+def test_related_words_keep_whole_word_matching():
+    assert hits("quiet", review_snippets=["the calmness"]) == 0
+    assert hits("veg", review_snippets=["non-veg only"]) == 0
+
+
+def test_every_related_group_has_more_than_one_word():
+    from recommender.candidates import RELATED_WORDS
+
+    assert all(len(group) > 1 for group in RELATED_WORDS)

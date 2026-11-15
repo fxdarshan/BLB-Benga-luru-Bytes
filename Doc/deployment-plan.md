@@ -17,6 +17,8 @@ This plan hosts BLB (Banga-Luru Bytes) with the backend on [Railway](https://rai
 >
 > A search from the Vercel page returns AI-ranked results. **Still open:** the dataset licence, while the GitHub repository and both sites are public (Phase 0); cost limits, monitoring, the rate-limit burst test and rollback practice (Phase 5). Railway's settings are now code in `.railway/railway.ts`, CI runs on every change, and usage counts and feedback are kept in SQLite (Phase 7). The service also has a second, unused address, `blb-benga-luru-bytes-production.up.railway.app`, which can be removed.
 >
+> **Update, 2026-11-15: the API moved from Railway to Vercel.** Railway's trial ended and the service went offline. A Hugging Face Space was tried first, but Docker Spaces on free CPU now need a PRO plan. The API is now the Vercel project `blb-api` (https://blb-api.vercel.app), a Python function deployed with `scripts/deploy-api.sh`, and the page's `VITE_API_BASE_URL` points to it. Usage counts are kept in memory there, and the volume, watch paths and Wait for CI below no longer apply. The README's Deploy section has the current steps; the Railway steps are kept for the record.
+>
 > **Phase 6 of the implementation plan (evaluation) is only partly done.** Its free preparation is complete, but the paid pilot, the judge, the full run and tuning were deferred so deployment could start. Tuning may still change the model or effort settings deployed here.
 
 ## Summary

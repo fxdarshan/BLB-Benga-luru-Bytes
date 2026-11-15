@@ -1,0 +1,36 @@
+# The API's Vercel project uploads only what the function needs: api/, src/, data/,
+# requirements.txt and vercel.json. data/ isn't in git, so deploys come from
+# scripts/deploy-api.sh, which uploads the local copy. The web page is the separate
+# blb-frontend project, with frontend/ as its root. pyproject.toml and uv.lock stay out, so
+# Vercel installs from requirements.txt.
+.claude
+.dockerignore
+.env
+.env.*
+.github
+.gitignore
+.ignore
+.pytest_cache
+.railway
+.ruff_cache
+.streamlit
+.venv
+Doc
+Dockerfile
+README.md
+blb_dark_dining_finder
+deploy
+design
+frontend
+graft
+graphify-out
+node_modules
+package-lock.json
+package.json
+pyproject.toml
+scripts
+tests
+traces
+uv.lock
+__pycache__
+.python-version

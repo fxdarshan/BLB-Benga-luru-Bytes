@@ -26,7 +26,7 @@ jobs:
     timeout-minutes: 10
     env:
       SITE: https://blb-frontend.vercel.app
-      API: https://blb-benga-luru-bytes-production-f4839515.up.railway.app/health
+      API: https://blb-api.vercel.app/health
       GH_TOKEN: ${{ github.token }}
       GH_REPO: ${{ github.repository }}
     steps:

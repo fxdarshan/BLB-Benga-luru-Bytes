@@ -2,9 +2,9 @@
 
 AI-powered restaurant recommendations for Bangalore. A diner picks an area, budget, cuisines, dishes and a minimum rating, and adds anything else in their own words. The app shortlists matching restaurants from a Zomato dataset, and an LLM ranks the shortlist and explains each pick. Facts on each card always come from the dataset, never from the LLM.
 
-It's a web app: a FastAPI backend (`src/recommender/api.py`) on Railway and a static frontend (`frontend/`) on Vercel, both of which also run locally. The search code is in `src/recommender/`. The first version was a single Streamlit program, `app.py`; it was removed on 2026-11-14, once the web app did everything it did and more.
+It's a web app: a FastAPI backend (`src/recommender/api.py`) and a static frontend (`frontend/`) on Vercel, both of which also run locally. The search code is in `src/recommender/`. The first version was a single Streamlit program, `app.py`; it was removed on 2026-11-14, once the web app did everything it did and more.
 
-**Live:** https://blb-frontend.vercel.app (API: https://blb-benga-luru-bytes-production-f4839515.up.railway.app)
+**Live:** https://blb-frontend.vercel.app (API: https://blb-api.vercel.app). Both run on Vercel's free plan.
 
 ## Web App Features
 
@@ -39,7 +39,7 @@ It's a web app: a FastAPI backend (`src/recommender/api.py`) on Railway and a st
 - [Problem statement](Doc/problemStatement.md)
 - [Architecture](Doc/architecture.md)
 - [Implementation plan](Doc/implementation-plan.md)
-- [Deployment plan](Doc/deployment-plan.md): Railway and Vercel, step by step
+- [Deployment plan](Doc/deployment-plan.md): the original Railway and Vercel plan, step by step. The API has since moved to Vercel: see [Deploy](#deploy).
 - [Evaluation plan](Doc/eval.md) and [edge cases](Doc/edge-cases.md)
 
 ## Set Up
@@ -126,15 +126,13 @@ The page itself is split into `main.js` (wiring), `dom.js` (icons and element he
 
 **Uptime:** [`.github/workflows/uptime.yml`](.github/workflows/uptime.yml) checks the site and `/health` every 15 minutes. If either is down for three tries a minute apart, it opens an issue labelled `uptime`, which GitHub emails you, and closes it once both are back. It never fails, so it can't hold up a deploy. GitHub pauses scheduled workflows in a public repository after 60 days without a commit. For error alerts from inside the API, an error tracker such as Sentry needs an account of your own.
 
-**CI:** [`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs the lint, the formatting check, the tests, the frontend tests and the frontend build on every pull request and every push to `main`. Railway deploys the API only after it passes on the commit.
+**CI:** [`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs the lint, the formatting check, the tests, the frontend tests and the frontend build on every pull request and every push to `main`. Vercel deploys the page on each merge; the API is deployed with `scripts/deploy-api.sh` (see [Deploy](#deploy)).
 
-**Usage counts and feedback** are kept in a SQLite file in `STATE_DIR`, so they survive restarts and deploys (in memory when it's unset, as locally). On Railway, `STATE_DIR` is `/app/state`, where the `blb-state` volume is mounted. The counts are at `GET /stats` on the API. To export the feedback as CSV for the evaluation:
+**Usage counts and feedback** are kept in a SQLite file in `STATE_DIR` when it is set, so they survive restarts. On Vercel there is no lasting disk, so `STATE_DIR` is unset and they are kept in memory: each running copy of the API counts its own, and the counts start again when it restarts. They are at `GET /stats`. Each piece of feedback is also written to the API log (Vercel's Logs tab) as a `feedback {...}` line. Where a file is kept, export the feedback as CSV with:
 
 ```bash
-uv run python -m recommender.usage_store /app/state/blb.sqlite3 > feedback.csv
+uv run python -m recommender.usage_store path/to/blb.sqlite3 > feedback.csv
 ```
-
-On Railway, run it inside the service with `railway ssh`. Each piece of feedback is also written to the API log as a `feedback {...}` line.
 
 ## Evaluate
 
@@ -154,29 +152,22 @@ Paid runs need a spending cap. See [Phase 6 of the implementation plan](Doc/impl
 
 The [deployment plan](Doc/deployment-plan.md) has the full steps. In short:
 
-1. **Railway (API):** deploy from GitHub. The `Dockerfile` builds `data/` during the build. Set `GROQ_API_KEY`, `ALLOWED_ORIGINS` and `TRUSTED_PROXY_HOPS=1` as variables in Railway.
-2. **Vercel (frontend):** import the repository with Root Directory `frontend/`, and set `VITE_API_BASE_URL` to the Railway address.
-3. Add the Vercel address to `ALLOWED_ORIGINS` on Railway.
+Both parts run on Vercel's free plan, as two projects:
 
-**Railway's settings are code**, in [`.railway/railway.ts`](.railway/railway.ts): the Dockerfile builder, the `/health` check that must pass before traffic moves to a new deployment, restart on failure, the watch paths (only changes to `src/`, the Docker files and the Python lock files redeploy the API, so frontend and docs commits don't restart it), "Wait for CI", and the `blb-state` volume at `/app/state`. A service with a volume can't run two deployments at once, so each API redeploy has a short outage. Railway never reads the file during a deploy. To change a setting, edit the file, then from the repository root:
+1. **`blb-api` (API):** a Python function, [`api/index.py`](api/index.py), which serves the FastAPI app for every path ([`vercel.json`](vercel.json)). [`.vercelignore`](.vercelignore) uploads only `api/`, `src/`, `data/`, `requirements.txt` and `vercel.json`. Vercel installs `requirements.txt`, which is exported from `uv.lock`. `data/` isn't in git, because the dataset states no licence, so this project isn't connected to GitHub: deploy it from a checkout that has `data/` (build it with `uv run --group ingest python -m recommender.ingest`):
 
-```bash
-npm install
-```
+   ```bash
+   sh scripts/deploy-api.sh
+   ```
 
-```bash
-npm run iac:plan
-```
+   The script refreshes `requirements.txt` from `uv.lock` and stops if it changed, so the lock and what Vercel installs never drift apart. Variables are set in the project: `GROQ_API_KEY` (secret), `LLM_PROVIDER=groq`, `LLM_EFFORT=low`, `LLM_DAILY_TOKEN_LIMIT=400000`, `ALLOWED_ORIGINS=https://blb-frontend.vercel.app`, `RATE_LIMIT_PER_MINUTE=10` and `TRUSTED_PROXY_HOPS=1`. A variable change takes effect on the next deploy.
+2. **`blb-frontend` (page):** connected to GitHub with Root Directory `frontend/`, so each merge to `main` deploys it. `VITE_API_BASE_URL` is `https://blb-api.vercel.app`, and the page's Content-Security-Policy (`frontend/vercel.json`) allows only that API.
 
-```bash
-npm run iac:apply
-```
+On Vercel, the rate limit, the result cache and the AI daily cap are kept per running copy of the function, so they are looser than on one server, and `WARM_CACHE_AREAS` should stay unset. The API first ran on Railway, whose trial ended; the `Dockerfile` and [`.railway/railway.ts`](.railway/railway.ts) still describe that setup, and the image runs on any Docker host.
 
-`iac:plan` only shows what would change. Variables, including the Groq key, stay in Railway's dashboard: the file never holds them.
+**Changes go through pull requests:** work on a branch, open a pull request, and merge it once CI passes. Merging to `main` deploys the web page; run `scripts/deploy-api.sh` after merging an API change.
 
-**Changes go through pull requests:** work on a branch, open a pull request, and merge it once CI passes. Merging to `main` deploys the API (after CI passes again on `main`) and the web page.
-
-**Change the API before the page.** Vercel deploys the page in seconds and Railway the API in minutes, so after a merge the new page briefly talks to the old API. Keep API changes additive (new endpoints and fields only), ship them first, and have the page treat a missing endpoint or field as absent, as it does for `/shortlist` and `/feedback`. Remove something from the API only after the page has stopped using it. Vercel skips builds when nothing in `frontend/` changed since its last deployment (`frontend/scripts/ignore-build.sh`).
+**Change the API before the page.** The page deploys on merge and the API when you run the deploy script, so for a while the new page may talk to the old API. Keep API changes additive (new endpoints and fields only), ship them first, and have the page treat a missing endpoint or field as absent, as it does for `/shortlist` and `/feedback`. Remove something from the API only after the page has stopped using it. Vercel skips builds when nothing in `frontend/` changed since its last deployment (`frontend/scripts/ignore-build.sh`).
 
 **Before making it public:** the dataset states no licence. Keep the deployment private until that is resolved.
 
@@ -196,7 +187,7 @@ npm run iac:apply
 | `ALLOWED_ORIGINS` | API | None | Comma-separated web origins allowed to call the API |
 | `ALLOWED_ORIGIN_REGEX` | API | None | Optional pattern, for preview deployments |
 | `RATE_LIMIT_PER_MINUTE` | API | `10` | Searches per client per minute. 0 turns it off. |
-| `TRUSTED_PROXY_HOPS` | API | `0` | `1` behind Railway's proxy, so the limit sees each diner's address |
+| `TRUSTED_PROXY_HOPS` | API | `0` | `1` behind Vercel's or Railway's proxy, so the limit sees each diner's address |
 | `WARM_CACHE_AREAS` | API | None (off) | Comma-separated areas whose default search is kept cached, so it's instant and makes no AI call for diners. Each costs about one AI search an hour, so name only a few on Groq's free plan. |
 | `WARM_CACHE_INTERVAL_SECONDS` | API | `60` | Wait between warm-up searches, which leaves most of the per-minute token limit for diners |
 | `STATE_DIR` | API | None (in memory) | Directory for the SQLite file of usage counts and feedback. The Docker image sets `/app/state`. |

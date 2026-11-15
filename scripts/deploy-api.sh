@@ -4,8 +4,10 @@
 # data/ isn't in git (the dataset has no stated licence), so the API is deployed from a machine
 # that has it, rather than by Vercel's Git integration. Build it first if needed:
 #     uv run --group ingest python -m recommender.ingest
-# Run from anywhere: sh scripts/deploy-api.sh. In CI, set VERCEL_TOKEN, VERCEL_ORG_ID and
-# VERCEL_PROJECT_ID instead of logging in.
+# The upload is assembled in a temporary folder with only what the function needs, so no
+# .vercelignore or vercel.json at the repository root affects the web page's builds.
+# Run from anywhere: sh scripts/deploy-api.sh. It uses the project link in .vercel/ (made by
+# `npx vercel link --project blb-api`), or VERCEL_ORG_ID and VERCEL_PROJECT_ID with VERCEL_TOKEN.
 set -eu
 cd "$(dirname "$0")/.."
 
@@ -22,4 +24,16 @@ if ! git diff --quiet -- requirements.txt; then
   exit 1
 fi
 
-npx --yes vercel@65.16.0 deploy --prod --yes ${VERCEL_TOKEN:+--token "$VERCEL_TOKEN"}
+upload=$(mktemp -d)
+trap 'rm -rf "$upload"' EXIT
+mkdir -p "$upload/api" "$upload/.vercel"
+cp api/index.py "$upload/api/"
+cp -r src data "$upload/"
+find "$upload/src" -name __pycache__ -type d -prune -exec rm -rf {} +
+cp requirements.txt "$upload/"
+cp deploy/api/vercel.json "$upload/"
+if [ -f .vercel/project.json ]; then
+  cp .vercel/project.json "$upload/.vercel/"
+fi
+
+npx --yes vercel@65.16.0 deploy --prod --yes --cwd "$upload" ${VERCEL_TOKEN:+--token "$VERCEL_TOKEN"}

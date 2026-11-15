@@ -154,7 +154,7 @@ The [deployment plan](Doc/deployment-plan.md) has the full steps. In short:
 
 Both parts run on Vercel's free plan, as two projects:
 
-1. **`blb-api` (API):** a Python function, [`api/index.py`](api/index.py), which serves the FastAPI app for every path ([`vercel.json`](vercel.json)). [`.vercelignore`](.vercelignore) uploads only `api/`, `src/`, `data/`, `requirements.txt` and `vercel.json`. Vercel installs `requirements.txt`, which is exported from `uv.lock`. `data/` isn't in git, because the dataset states no licence, so this project isn't connected to GitHub: deploy it from a checkout that has `data/` (build it with `uv run --group ingest python -m recommender.ingest`):
+1. **`blb-api` (API):** a Python function, [`api/index.py`](api/index.py), which serves the FastAPI app for every path ([`deploy/api/vercel.json`](deploy/api/vercel.json)). The deploy script uploads only `api/`, `src/`, `data/`, `requirements.txt` and that `vercel.json`, assembled in a temporary folder, so nothing at the repository root affects the web page's builds. Vercel installs `requirements.txt`, which is exported from `uv.lock`. `data/` isn't in git, because the dataset states no licence, so this project isn't connected to GitHub: deploy it from a checkout that has `data/` (build it with `uv run --group ingest python -m recommender.ingest`):
 
    ```bash
    sh scripts/deploy-api.sh

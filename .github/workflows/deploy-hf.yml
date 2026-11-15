@@ -1,0 +1,39 @@
+# Deploys the API to the Hugging Face Space after CI passes on main, like Railway's Wait for CI.
+# Only a change to the files the image is built from rebuilds the Space: an upload with nothing
+# new makes no commit there. Run it by hand from the Actions tab for the first deploy.
+# Needs the repository secret HF_TOKEN, a Hugging Face token with write access.
+name: Deploy to Hugging Face
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-hf
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Upload to the Space
+    if: github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # The commit CI passed on, not whatever main is now.
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install huggingface_hub==2.4.0
+      - run: python scripts/deploy_hf_space.py
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          GITHUB_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}

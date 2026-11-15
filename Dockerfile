@@ -1,4 +1,4 @@
-# The BLB API, for Railway. See Doc/deployment-plan.md.
+# The BLB API, for Hugging Face Spaces or Railway. See Doc/deployment-plan.md.
 #
 # Two stages: the first builds data/ from the pinned dataset revision, and the second is the
 # server, which gets only data/ from it. The 574 MB raw download and the ingestion packages
@@ -48,6 +48,10 @@ RUN useradd --create-home --uid 10001 blb \
  && chown -R blb:blb /app \
  && setpriv --version
 
-# Railway sets PORT. One worker, so every search shares one cache and one view of the
-# provider's token limit. If the chown fails, the server still starts and keeps counts in memory.
-CMD ["sh", "-c", "chown -R blb:blb \"$STATE_DIR\"; exec setpriv --reuid=blb --regid=blb --init-groups uvicorn --factory recommender.api:create_app --host 0.0.0.0 --port ${PORT:-8000} --workers 1"]
+# Railway sets PORT; Hugging Face uses app_port (8000) from the Space's README. One worker, so
+# every search shares one cache and one view of the provider's token limit.
+# Railway starts the container as root: it hands STATE_DIR to blb and drops to it. Hugging Face
+# starts it as user 1000 already, which can't write STATE_DIR, so counts are kept in memory there.
+# If the chown fails, the server still starts and keeps counts in memory.
+ENV APP="recommender.api:create_app"
+CMD ["sh", "-c", "if [ \"$(id -u)\" = 0 ]; then chown -R blb:blb \"$STATE_DIR\"; exec setpriv --reuid=blb --regid=blb --init-groups uvicorn --factory \"$APP\" --host 0.0.0.0 --port \"${PORT:-8000}\" --workers 1; else exec uvicorn --factory \"$APP\" --host 0.0.0.0 --port \"${PORT:-8000}\" --workers 1; fi"]
